@@ -13,19 +13,19 @@ export default function Users() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Users</h1>
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <h1 className="page-title mb-6">Users</h1>
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 text-left">
+          <thead className="table-head">
             <tr><th className="p-3">Name</th><th>Email</th><th>Role</th><th>Department</th><th>Active</th></tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="border-t">
+              <tr key={u.id} className="table-row">
                 <td className="p-3">{u.name}</td>
                 <td>{u.email}</td>
                 <td>
-                  <select value={u.role} onChange={(e) => updateRole(u.id, e.target.value)} className="border rounded px-2 py-1 text-xs">
+                  <select value={u.role} onChange={(e) => updateRole(u.id, e.target.value)} className="input-sm">
                     <option value="admin">admin</option>
                     <option value="it_support">it_support</option>
                     <option value="employee">employee</option>

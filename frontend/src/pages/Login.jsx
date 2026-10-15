@@ -21,25 +21,25 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form onSubmit={submit} className="bg-white p-8 rounded-xl shadow w-full max-w-sm">
-        <h1 className="text-xl font-bold mb-1">IT Asset Manager</h1>
-        <p className="text-sm text-gray-500 mb-6">Sign in to continue</p>
-        {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        <label className="text-sm font-medium">Email</label>
+    <div className="min-h-screen flex items-center justify-center bg-app p-4">
+      <form onSubmit={submit} className="bg-surface border border-line p-8 rounded-xl shadow-float w-full max-w-sm">
+        <h1 className="page-title mb-1"><span className="text-accent">I</span>T Inventra</h1>
+        <p className="text-sm text-fg-secondary mb-6">Sign in to continue</p>
+        {error && <p className="text-danger text-sm mb-3">{error}</p>}
+        <label className="text-xs font-medium text-fg-secondary">Email</label>
         <input
           type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 mb-4 mt-1" required
+          className="input w-full mb-4 mt-1" required
         />
-        <label className="text-sm font-medium">Password</label>
+        <label className="text-xs font-medium text-fg-secondary">Password</label>
         <input
           type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-          className="w-full border rounded-lg px-3 py-2 mb-6 mt-1" required
+          className="input w-full mb-6 mt-1" required
         />
-        <button className="w-full bg-blue-600 text-white rounded-lg py-2 font-medium hover:bg-blue-700">
+        <button className="btn-primary w-full py-2.5">
           Log in
         </button>
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-fg-muted mt-4">
           Demo: admin@company.com / Admin@123
         </p>
       </form>

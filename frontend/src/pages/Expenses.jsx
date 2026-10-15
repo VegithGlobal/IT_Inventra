@@ -26,51 +26,51 @@ export default function Expenses() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Expenses</h1>
-        <button onClick={() => setShowForm(!showForm)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
+        <h1 className="page-title">Expenses</h1>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary">
           {showForm ? 'Cancel' : '+ Add Expense'}
         </button>
       </div>
 
       {showForm && (
-        <form onSubmit={submit} className="bg-white rounded-xl shadow p-5 mb-6 grid grid-cols-3 gap-3">
+        <form onSubmit={submit} className="card p-5 mb-6 grid grid-cols-3 gap-3">
           <input placeholder="Asset No. (optional)" value={form.asset_no}
-            onChange={(e) => setForm({ ...form, asset_no: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" />
+            onChange={(e) => setForm({ ...form, asset_no: e.target.value })} className="input" />
           <input type="date" value={form.expense_date}
-            onChange={(e) => setForm({ ...form, expense_date: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" required />
-          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="border rounded-lg px-3 py-2 text-sm">
+            onChange={(e) => setForm({ ...form, expense_date: e.target.value })} className="input" required />
+          <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="input">
             {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
           </select>
           <input placeholder="Description" value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })} className="border rounded-lg px-3 py-2 text-sm col-span-2" />
+            onChange={(e) => setForm({ ...form, description: e.target.value })} className="input col-span-2" />
           <input type="number" placeholder="Amount" value={form.amount}
-            onChange={(e) => setForm({ ...form, amount: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" required />
+            onChange={(e) => setForm({ ...form, amount: e.target.value })} className="input" required />
           <input placeholder="Vendor" value={form.vendor}
-            onChange={(e) => setForm({ ...form, vendor: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" />
+            onChange={(e) => setForm({ ...form, vendor: e.target.value })} className="input" />
           <input placeholder="Paid By" value={form.paid_by}
-            onChange={(e) => setForm({ ...form, paid_by: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" />
+            onChange={(e) => setForm({ ...form, paid_by: e.target.value })} className="input" />
           <input placeholder="Department" value={form.department}
-            onChange={(e) => setForm({ ...form, department: e.target.value })} className="border rounded-lg px-3 py-2 text-sm" />
-          <button className="col-span-3 bg-green-600 text-white rounded-lg py-2 text-sm font-medium">Save Expense</button>
+            onChange={(e) => setForm({ ...form, department: e.target.value })} className="input" />
+          <button className="col-span-3 btn-primary">Save Expense</button>
         </form>
       )}
 
       <div className="flex justify-between items-center mb-4">
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className="border rounded-lg px-3 py-2 text-sm">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className="input">
           <option value="">All Categories</option>
           {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
         </select>
         <p className="text-sm font-semibold">Total: ₹{total.toLocaleString()}</p>
       </div>
 
-      <div className="bg-white rounded-xl shadow overflow-hidden">
+      <div className="card overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-100 text-left">
+          <thead className="table-head">
             <tr><th className="p-3">Date</th><th>Asset</th><th>Category</th><th>Description</th><th>Vendor</th><th>Amount</th></tr>
           </thead>
           <tbody>
             {expenses.map((e) => (
-              <tr key={e.id} className="border-t hover:bg-gray-50">
+              <tr key={e.id} className="table-row">
                 <td className="p-3">{new Date(e.expense_date).toLocaleDateString()}</td>
                 <td>{e.asset_no || '-'}</td>
                 <td>{e.category}</td>
@@ -81,7 +81,7 @@ export default function Expenses() {
             ))}
           </tbody>
         </table>
-        {!expenses.length && <p className="p-6 text-center text-gray-400">No expenses found</p>}
+        {!expenses.length && <p className="p-6 text-center text-fg-muted">No expenses found</p>}
       </div>
     </div>
   );

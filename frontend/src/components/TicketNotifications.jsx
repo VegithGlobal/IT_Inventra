@@ -105,15 +105,15 @@ export default function TicketNotifications() {
   return (
     <div className="fixed bottom-4 right-4 z-50 w-80 space-y-2">
       {toasts.map((t) => (
-        <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border-l-4 border-blue-600 bg-white p-4 shadow-lg">
+        <div key={t.id} className="flex items-start justify-between gap-3 rounded-lg border border-line-strong border-l-4 border-l-accent bg-elevated p-4 shadow-float">
           <button
             onClick={() => { navigate(`/tickets/${t.ticket_no}`); dismiss(t.id); }}
             className="flex-1 text-left"
           >
             <p className="text-sm font-semibold">Ticket {t.ticket_no} updated</p>
-            <p className="mt-0.5 text-xs text-gray-500">Status changed to <span className="font-medium">{t.status}</span></p>
+            <p className="mt-0.5 text-xs text-fg-secondary">Status changed to <span className="font-medium">{t.status}</span></p>
           </button>
-          <button onClick={() => dismiss(t.id)} className="text-sm text-gray-400 hover:text-gray-600">✕</button>
+          <button onClick={() => dismiss(t.id)} aria-label="Dismiss" className="text-sm text-fg-muted hover:text-fg">✕</button>
         </div>
       ))}
     </div>
