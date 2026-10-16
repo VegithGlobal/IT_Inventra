@@ -1,0 +1,822 @@
+// IT Ops Hub — data model.
+// Conventions: cuid ids, createdAt/updatedAt everywhere, deletedAt for soft delete,
+// money as Decimal(14,2), calendar dates as @db.Date.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  IT_STAFF
+  VIEWER
+}
+
+/// App login (the IT team). Employees who receive assets never log in.
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(VIEWER)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  assignmentsIssued   AssetAssignment[]     @relation("AssetAssignment_issuedByIdToUser")
+  assignmentsReceived AssetAssignment[]     @relation("AssetAssignment_receivedByIdToUser")
+  auditLogs           AuditLog[]
+  documents           Document[]
+  notifications       Notification[]
+  reminders           Reminder[]
+  stockMovements      StockMovement[]
+  subscriptionPayments SubscriptionPayment[]
+  ticketsAssigned     Ticket[]              @relation("Ticket_assigneeIdToUser")
+  ticketsCreated      Ticket[]              @relation("Ticket_createdByIdToUser")
+  ticketComments      TicketComment[]
+}
+
+// ─── Master data ─────────────────────────────────────────────────────────────
+
+model Department {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  code      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  assets        Asset[]
+  employees     Employee[]
+  subscriptions Subscription[]
+}
+
+model Location {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  city      String?
+  address   String?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  assets         Asset[]
+  employees      Employee[]
+  inventoryItems InventoryItem[]
+  subscriptions  Subscription[]
+}
+
+enum VendorCategory {
+  ISP
+  HARDWARE
+  CLOUD
+  SERVICE_CENTER
+  SOFTWARE
+  OTHER
+}
+
+model Vendor {
+  id            String         @id @default(cuid())
+  name          String
+  category      VendorCategory @default(OTHER)
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  website       String?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+
+  assets         Asset[]
+  documents      Document[]
+  expenses       Expense[]
+  inventoryItems InventoryItem[]
+  licenses       License[]
+  maintenance    MaintenanceRecord[]
+  subscriptions  Subscription[]
+
+  @@index([name])
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  LEAVING
+  EXITED
+}
+
+model Employee {
+  id           String         @id @default(cuid())
+  employeeCode String         @unique
+  name         String
+  email        String?        @unique
+  phone        String?
+  designation  String?
+  departmentId String?
+  locationId   String?
+  joiningDate  DateTime?      @db.Date
+  exitDate     DateTime?      @db.Date
+  status       EmployeeStatus @default(ACTIVE)
+  photoKey     String?
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  deletedAt    DateTime?
+
+  department     Department?       @relation(fields: [departmentId], references: [id])
+  location       Location?         @relation(fields: [locationId], references: [id])
+  heldAssets     Asset[]
+  assignments    AssetAssignment[]
+  documents      Document[]
+  licenseSeats   LicenseSeat[]
+  stockMovements StockMovement[]
+  tickets        Ticket[]
+
+  @@index([name])
+  @@index([status])
+}
+
+// ─── Assets ──────────────────────────────────────────────────────────────────
+
+model AssetType {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  prefix           String   @unique
+  nextSequence     Int      @default(1)
+  usefulLifeMonths Int      @default(36)
+  salvagePercent   Decimal  @default(5) @db.Decimal(5, 2)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  assets Asset[]
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+}
+
+enum AssetStatus {
+  IN_STOCK
+  ASSIGNED
+  UNDER_REPAIR
+  IN_TRANSIT
+  LOST_STOLEN
+  RETIRED
+  DISPOSED
+}
+
+model Asset {
+  id              String         @id @default(cuid())
+  assetTag        String         @unique
+  name            String
+  typeId          String
+  brand           String?
+  model           String?
+  serialNumber    String?        @unique
+  specs           Json?
+  purchaseDate    DateTime?      @db.Date
+  purchaseCost    Decimal?       @db.Decimal(14, 2)
+  vendorId        String?
+  invoiceNumber   String?
+  warrantyStart   DateTime?      @db.Date
+  warrantyEnd     DateTime?      @db.Date
+  locationId      String?
+  departmentId    String?
+  condition       AssetCondition @default(GOOD)
+  status          AssetStatus    @default(IN_STOCK)
+  currentHolderId String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+
+  type          AssetType           @relation(fields: [typeId], references: [id])
+  vendor        Vendor?             @relation(fields: [vendorId], references: [id])
+  location      Location?           @relation(fields: [locationId], references: [id])
+  department    Department?         @relation(fields: [departmentId], references: [id])
+  currentHolder Employee?           @relation(fields: [currentHolderId], references: [id])
+  assignments   AssetAssignment[]
+  documents     Document[]
+  expenses      Expense[]
+  licenseSeats  LicenseSeat[]
+  maintenance   MaintenanceRecord[]
+  reminders     Reminder[]
+  tickets       Ticket[]
+
+  @@index([currentHolderId])
+  @@index([status])
+  @@index([typeId])
+  @@index([warrantyEnd])
+}
+
+/// Permanent check-out/check-in record. returnedAt = null means currently held.
+model AssetAssignment {
+  id                String          @id @default(cuid())
+  assetId           String
+  employeeId        String
+  issuedAt          DateTime        @db.Date
+  expectedReturnAt  DateTime?       @db.Date
+  returnedAt        DateTime?       @db.Date
+  conditionAtIssue  AssetCondition
+  conditionAtReturn AssetCondition?
+  accessories       Json?
+  issueNotes        String?
+  returnNotes       String?
+  damageNotes       String?
+  issuedById        String?
+  receivedById      String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  asset      Asset      @relation(fields: [assetId], references: [id])
+  employee   Employee   @relation(fields: [employeeId], references: [id])
+  issuedBy   User?      @relation("AssetAssignment_issuedByIdToUser", fields: [issuedById], references: [id])
+  receivedBy User?      @relation("AssetAssignment_receivedByIdToUser", fields: [receivedById], references: [id])
+  documents  Document[]
+
+  @@index([assetId, issuedAt])
+  @@index([employeeId, issuedAt])
+  @@index([returnedAt])
+}
+
+enum MaintenanceStatus {
+  OPEN
+  CLOSED
+}
+
+model MaintenanceRecord {
+  id                  String            @id @default(cuid())
+  assetId             String
+  issue               String
+  sentAt              DateTime          @db.Date
+  vendorId            String?
+  cost                Decimal?          @db.Decimal(14, 2)
+  expectedReturnAt    DateTime?         @db.Date
+  returnedAt          DateTime?         @db.Date
+  outcome             String?
+  underWarranty       Boolean           @default(false)
+  status              MaintenanceStatus @default(OPEN)
+  previousAssetStatus AssetStatus?
+  ticketId            String?
+  notes               String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  deletedAt           DateTime?
+
+  asset     Asset      @relation(fields: [assetId], references: [id])
+  vendor    Vendor?    @relation(fields: [vendorId], references: [id])
+  ticket    Ticket?    @relation(fields: [ticketId], references: [id])
+  documents Document[]
+  expenses  Expense[]
+
+  @@index([assetId])
+  @@index([status])
+}
+
+// ─── Inventory ───────────────────────────────────────────────────────────────
+
+model InventoryItem {
+  id          String    @id @default(cuid())
+  name        String
+  category    String
+  sku         String    @unique
+  unit        String    @default("pcs")
+  quantity    Int       @default(0)
+  minQuantity Int       @default(0)
+  unitCost    Decimal?  @db.Decimal(14, 2)
+  locationId  String?
+  vendorId    String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  location  Location?       @relation(fields: [locationId], references: [id])
+  vendor    Vendor?         @relation(fields: [vendorId], references: [id])
+  expenses  Expense[]
+  movements StockMovement[]
+
+  @@index([name])
+}
+
+enum StockMovementType {
+  STOCK_IN
+  STOCK_OUT
+  ADJUSTMENT
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  itemId         String
+  type           StockMovementType
+  quantityChange Int
+  quantityAfter  Int
+  unitCost       Decimal?          @db.Decimal(14, 2)
+  employeeId     String?
+  ticketId       String?
+  invoiceNumber  String?
+  notes          String?
+  occurredAt     DateTime          @default(now())
+  createdById    String?
+  createdAt      DateTime          @default(now())
+
+  item      InventoryItem @relation(fields: [itemId], references: [id])
+  employee  Employee?     @relation(fields: [employeeId], references: [id])
+  ticket    Ticket?       @relation(fields: [ticketId], references: [id])
+  createdBy User?         @relation(fields: [createdById], references: [id])
+
+  @@index([itemId, occurredAt])
+}
+
+// ─── Subscriptions & licenses ────────────────────────────────────────────────
+
+enum SubscriptionCategory {
+  ISP
+  CLOUD
+  DOMAIN
+  SSL
+  SOFTWARE
+  AMC
+  PHONE
+  OTHER
+}
+
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  CUSTOM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum PaymentMode {
+  UPI
+  CARD
+  BANK_TRANSFER
+  CASH
+  CHEQUE
+}
+
+model Subscription {
+  id              String               @id @default(cuid())
+  name            String
+  category        SubscriptionCategory
+  vendorId        String?
+  accountId       String?
+  planDetails     String?
+  amount          Decimal              @db.Decimal(14, 2)
+  currency        String               @default("INR")
+  billingCycle    BillingCycle
+  customCycleDays Int?
+  startDate       DateTime             @db.Date
+  nextDueDate     DateTime             @db.Date
+  autoRenew       Boolean              @default(false)
+  paymentMode     PaymentMode?
+  locationId      String?
+  departmentId    String?
+  loginUrl        String?
+  /// AES-256-GCM ciphertext (see src/lib/crypto.ts). Never plain text.
+  credentialsEnc  String?
+  /// Days-before-due reminder offsets; null = use the global default.
+  reminderDays    Json?
+  status          SubscriptionStatus   @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+
+  vendor     Vendor?               @relation(fields: [vendorId], references: [id])
+  location   Location?             @relation(fields: [locationId], references: [id])
+  department Department?           @relation(fields: [departmentId], references: [id])
+  payments   SubscriptionPayment[]
+  documents  Document[]
+  expenses   Expense[]
+  licenses   License[]
+  reminders  Reminder[]
+
+  @@index([nextDueDate])
+  @@index([status])
+}
+
+model SubscriptionPayment {
+  id             String      @id @default(cuid())
+  subscriptionId String
+  paidAt         DateTime    @db.Date
+  amount         Decimal     @db.Decimal(14, 2)
+  paymentMode    PaymentMode
+  transactionRef String?
+  periodStart    DateTime    @db.Date
+  periodEnd      DateTime    @db.Date
+  expenseId      String?     @unique
+  notes          String?
+  createdById    String?
+  createdAt      DateTime    @default(now())
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  expense      Expense?     @relation(fields: [expenseId], references: [id])
+  createdBy    User?        @relation(fields: [createdById], references: [id])
+
+  @@index([subscriptionId, paidAt])
+}
+
+enum LicenseType {
+  PER_USER
+  PER_DEVICE
+  SITE
+}
+
+model License {
+  id             String      @id @default(cuid())
+  name           String
+  vendorId       String?
+  licenseKeyEnc  String?
+  type           LicenseType
+  totalSeats     Int         @default(1)
+  purchaseDate   DateTime?   @db.Date
+  expiryDate     DateTime?   @db.Date
+  cost           Decimal?    @db.Decimal(14, 2)
+  subscriptionId String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  deletedAt      DateTime?
+
+  vendor       Vendor?       @relation(fields: [vendorId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  seats        LicenseSeat[]
+  expenses     Expense[]
+  reminders    Reminder[]
+
+  @@index([expiryDate])
+}
+
+model LicenseSeat {
+  id         String    @id @default(cuid())
+  licenseId  String
+  employeeId String?
+  assetId    String?
+  assignedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  notes      String?
+
+  license  License   @relation(fields: [licenseId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
+  asset    Asset?    @relation(fields: [assetId], references: [id])
+
+  @@index([licenseId, revokedAt])
+}
+
+// ─── Expenses & documents ────────────────────────────────────────────────────
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// Chart/token key, e.g. "chart-1" or "neutral".
+  colorKey  String   @default("neutral")
+  /// System categories are used by auto-created expenses and can't be deleted.
+  isSystem  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  expenses Expense[]
+}
+
+enum ExpenseSource {
+  MANUAL
+  SUBSCRIPTION
+  ASSET_PURCHASE
+  STOCK_IN
+  MAINTENANCE
+  LICENSE
+}
+
+/// Every IT spend. Linked entity is one of the nullable *Id columns.
+model Expense {
+  id              String        @id @default(cuid())
+  date            DateTime      @db.Date
+  categoryId      String
+  description     String
+  amount          Decimal       @db.Decimal(14, 2)
+  taxAmount       Decimal       @default(0) @db.Decimal(14, 2)
+  total           Decimal       @db.Decimal(14, 2)
+  vendorId        String?
+  paymentMode     PaymentMode?
+  transactionRef  String?
+  paidBy          String?
+  notes           String?
+  source          ExpenseSource @default(MANUAL)
+  assetId         String?
+  subscriptionId  String?
+  ticketId        String?
+  inventoryItemId String?
+  maintenanceId   String?
+  licenseId       String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  category            ExpenseCategory      @relation(fields: [categoryId], references: [id])
+  vendor              Vendor?              @relation(fields: [vendorId], references: [id])
+  asset               Asset?               @relation(fields: [assetId], references: [id])
+  subscription        Subscription?        @relation(fields: [subscriptionId], references: [id])
+  ticket              Ticket?              @relation(fields: [ticketId], references: [id])
+  inventoryItem       InventoryItem?       @relation(fields: [inventoryItemId], references: [id])
+  maintenance         MaintenanceRecord?   @relation(fields: [maintenanceId], references: [id])
+  license             License?             @relation(fields: [licenseId], references: [id])
+  subscriptionPayment SubscriptionPayment?
+  documents           Document[]
+
+  @@index([categoryId, date])
+  @@index([date])
+  @@index([vendorId])
+}
+
+enum DocumentType {
+  INVOICE
+  RECEIPT
+  WARRANTY_CARD
+  QUOTATION
+  HANDOVER_FORM
+  RETURN_FORM
+  CONTRACT
+  PHOTO
+  OTHER
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  type           DocumentType
+  title          String
+  /// Storage key (see src/lib/storage). Never a public path.
+  fileKey        String       @unique
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  invoiceNumber  String?
+  invoiceDate    DateTime?    @db.Date
+  vendorId       String?
+  amount         Decimal?     @db.Decimal(14, 2)
+  notes          String?
+  assetId        String?
+  subscriptionId String?
+  expenseId      String?
+  ticketId       String?
+  maintenanceId  String?
+  employeeId     String?
+  assignmentId   String?
+  uploadedById   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+
+  vendor       Vendor?            @relation(fields: [vendorId], references: [id])
+  asset        Asset?             @relation(fields: [assetId], references: [id])
+  subscription Subscription?      @relation(fields: [subscriptionId], references: [id])
+  expense      Expense?           @relation(fields: [expenseId], references: [id])
+  ticket       Ticket?            @relation(fields: [ticketId], references: [id])
+  maintenance  MaintenanceRecord? @relation(fields: [maintenanceId], references: [id])
+  employee     Employee?          @relation(fields: [employeeId], references: [id])
+  assignment   AssetAssignment?   @relation(fields: [assignmentId], references: [id])
+  uploadedBy   User?              @relation(fields: [uploadedById], references: [id])
+
+  @@index([invoiceDate])
+  @@index([invoiceNumber])
+  @@index([type])
+}
+
+// ─── Tickets ─────────────────────────────────────────────────────────────────
+
+model TicketCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tickets Ticket[]
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_USER
+  WAITING_ON_VENDOR
+  RESOLVED
+  CLOSED
+}
+
+enum TicketSource {
+  WALK_IN
+  PHONE
+  WHATSAPP
+  EMAIL
+  SELF_IDENTIFIED
+}
+
+model Ticket {
+  id               String         @id @default(cuid())
+  seq              Int            @unique @default(autoincrement())
+  ticketNumber     String         @unique
+  title            String
+  description      String?
+  requesterId      String
+  categoryId       String?
+  priority         TicketPriority @default(MEDIUM)
+  status           TicketStatus   @default(OPEN)
+  source           TicketSource   @default(WALK_IN)
+  assetId          String?
+  dueDate          DateTime?
+  resolutionNotes  String?
+  timeSpentMinutes Int            @default(0)
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  assigneeId       String?
+  createdById      String?
+  reminderId       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  requester      Employee            @relation(fields: [requesterId], references: [id])
+  category       TicketCategory?     @relation(fields: [categoryId], references: [id])
+  asset          Asset?              @relation(fields: [assetId], references: [id])
+  assignee       User?               @relation("Ticket_assigneeIdToUser", fields: [assigneeId], references: [id])
+  createdBy      User?               @relation("Ticket_createdByIdToUser", fields: [createdById], references: [id])
+  reminder       Reminder?           @relation(fields: [reminderId], references: [id])
+  comments       TicketComment[]
+  documents      Document[]
+  expenses       Expense[]
+  maintenance    MaintenanceRecord[]
+  stockMovements StockMovement[]
+
+  @@index([assetId])
+  @@index([createdAt])
+  @@index([dueDate])
+  @@index([requesterId])
+  @@index([status])
+}
+
+enum TicketEventKind {
+  COMMENT
+  STATUS_CHANGE
+  ATTACHMENT
+  SYSTEM
+}
+
+model TicketComment {
+  id        String          @id @default(cuid())
+  ticketId  String
+  authorId  String?
+  kind      TicketEventKind @default(COMMENT)
+  body      String
+  meta      Json?
+  createdAt DateTime        @default(now())
+
+  ticket Ticket @relation(fields: [ticketId], references: [id])
+  author User?  @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId, createdAt])
+}
+
+// ─── Reminders, notifications, audit, settings ───────────────────────────────
+
+enum ReminderType {
+  CUSTOM
+  RECURRING_TASK
+  PREVENTIVE_MAINTENANCE
+}
+
+enum RepeatRule {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  HALF_YEARLY
+  YEARLY
+  CUSTOM_DAYS
+}
+
+model Reminder {
+  id              String       @id @default(cuid())
+  type            ReminderType @default(CUSTOM)
+  title           String
+  notes           String?
+  nextRunAt       DateTime
+  repeatRule      RepeatRule   @default(NONE)
+  repeatEveryDays Int?
+  active          Boolean      @default(true)
+  /// For RECURRING_TASK: the ticket template to create.
+  template        Json?
+  lastTriggeredAt DateTime?
+  assetId         String?
+  subscriptionId  String?
+  licenseId       String?
+  createdById     String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  asset        Asset?        @relation(fields: [assetId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  license      License?      @relation(fields: [licenseId], references: [id])
+  createdBy    User?         @relation(fields: [createdById], references: [id])
+  tickets      Ticket[]
+
+  @@index([active, nextRunAt])
+}
+
+enum NotificationType {
+  SUBSCRIPTION_DUE
+  PAYMENT_OVERDUE
+  WARRANTY_EXPIRY
+  LICENSE_EXPIRY
+  LOW_STOCK
+  TICKET_DUE
+  ASSET_RETURN_DUE
+  MAINTENANCE_DUE
+  REMINDER
+  SYSTEM
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String?
+  href      String?
+  /// Makes the cron job idempotent: one notification per (user, event, day).
+  dedupeKey String           @unique
+  readAt    DateTime?
+  emailedAt DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+}
+
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorId     String?
+  action      AuditAction
+  entityType  String
+  entityId    String
+  entityLabel String?
+  before      Json?
+  after       Json?
+  diff        Json?
+  createdAt   DateTime    @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
+
+/// Key/value app settings (company, reminders, emailNotifications, depreciation).
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+}

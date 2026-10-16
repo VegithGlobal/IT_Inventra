@@ -1,0 +1,243 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+ * ─── Design tokens (single source of truth) ─────────────────────────────────
+ * Light theme only. Components use Tailwind utilities generated from these
+ * (bg-app, bg-surface, text-fg-muted, bg-brand, bg-success-soft …) or the
+ * shadcn semantic aliases below — never raw colour values.
+ */
+:root {
+  /* Surfaces */
+  --bg-app: #f7f7f5;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f2f2ef;
+  --bg-muted: #eaeae6;
+
+  /* Lines */
+  --line: #e6e6e1;
+  --line-strong: #d4d4ce;
+
+  /* Text — muted is darkened from the spec's #8F8F89 (3.1:1 on bg-app) to pass WCAG AA */
+  --text-primary: #111111;
+  --text-secondary: #5f5f5a;
+  --text-muted: #6f6f69;
+
+  /* Actions */
+  --action: #111111;
+  --action-hover: #2b2b2b;
+  --action-fg: #ffffff;
+
+  /* Brand accent — used sparingly */
+  --brand: #a3d93b;
+  --brand-soft: #f1f9e2;
+  --brand-text: #4d6b12;
+
+  /* Status: soft background + strong text */
+  --success-soft: #eaf7ee;
+  --success: #1e7a3c;
+  --warning-soft: #fff6e0;
+  --warning: #8a5a00;
+  --danger-soft: #fdecec;
+  --danger: #b42318;
+  --info-soft: #eaf2ff;
+  --info: #1d4ed8;
+  --neutral-soft: #f2f2ef;
+  --neutral: #5f5f5a;
+
+  /* Priority dots */
+  --priority-low: #9ca3af;
+  --priority-medium: #3b82f6;
+  --priority-high: #f59e0b;
+  --priority-critical: #ef4444;
+
+  /* Avatar tints (initials on soft background) */
+  --avatar-1-bg: #f1f9e2;
+  --avatar-1-fg: #4d6b12;
+  --avatar-2-bg: #eaf2ff;
+  --avatar-2-fg: #1d4ed8;
+  --avatar-3-bg: #fff6e0;
+  --avatar-3-fg: #8a5a00;
+  --avatar-4-bg: #f5ecfd;
+  --avatar-4-fg: #6b2fa3;
+  --avatar-5-bg: #e6f6f4;
+  --avatar-5-fg: #0f6b61;
+  --avatar-6-bg: #fdecec;
+  --avatar-6-fg: #a32b1f;
+
+  /* Charts: categorical order validated for CVD + normal-vision separation (dataviz validator,
+     light surface). Lime leads (brand). Fixed order — never cycled. Contrast < 3:1 for some
+     slots, so charts always ship a legend + table view. */
+  --chart-1: #6fa524; /* lime */
+  --chart-2: #2a78d6; /* blue */
+  --chart-3: #eb6834; /* orange */
+  --chart-4: #1baf7a; /* aqua */
+  --chart-5: #6250d6; /* violet */
+  --chart-6: #eda100; /* yellow */
+  --chart-7: #e87ba4; /* magenta */
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+
+  /* Elevation (floating elements only) */
+  --shadow-popover: 0 4px 16px rgba(17, 17, 17, 0.08);
+  --shadow-overlay: 0 16px 48px rgba(17, 17, 17, 0.12);
+
+  /* shadcn semantic aliases → tokens */
+  --background: var(--bg-surface);
+  --foreground: var(--text-primary);
+  --card: var(--bg-surface);
+  --card-foreground: var(--text-primary);
+  --popover: var(--bg-surface);
+  --popover-foreground: var(--text-primary);
+  --primary: var(--action);
+  --primary-foreground: var(--action-fg);
+  --secondary: var(--bg-subtle);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-subtle);
+  --muted-foreground: var(--text-muted);
+  --accent: var(--bg-subtle);
+  --accent-foreground: var(--text-primary);
+  --destructive: var(--danger);
+  --border: var(--line);
+  --input: var(--line);
+  --ring: var(--text-primary);
+  --radius: 0.5rem;
+  --sidebar: var(--bg-surface);
+  --sidebar-foreground: var(--text-primary);
+  --sidebar-primary: var(--action);
+  --sidebar-primary-foreground: var(--action-fg);
+  --sidebar-accent: var(--bg-subtle);
+  --sidebar-accent-foreground: var(--text-primary);
+  --sidebar-border: var(--line);
+  --sidebar-ring: var(--text-primary);
+}
+
+@theme inline {
+  /* Fonts (next/font variables set on <html>) */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Token utilities */
+  --color-app: var(--bg-app);
+  --color-surface: var(--bg-surface);
+  --color-subtle: var(--bg-subtle);
+  --color-pressed: var(--bg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--text-primary);
+  --color-fg-secondary: var(--text-secondary);
+  --color-fg-muted: var(--text-muted);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-action-fg: var(--action-fg);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-text: var(--brand-text);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-priority-low: var(--priority-low);
+  --color-priority-medium: var(--priority-medium);
+  --color-priority-high: var(--priority-high);
+  --color-priority-critical: var(--priority-critical);
+
+  /* shadcn aliases */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Radius: 8 controls · 12 cards/tables · 16 modals/panels */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-4xl: 9999px;
+
+  --shadow-popover: var(--shadow-popover);
+  --shadow-overlay: var(--shadow-overlay);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    font-feature-settings: "cv11", "ss01";
+  }
+  body {
+    @apply bg-app text-fg antialiased;
+    font-size: 14px;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    outline-color: var(--text-primary);
+  }
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--text-primary);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
