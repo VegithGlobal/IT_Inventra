@@ -48,7 +48,7 @@ const KIND_TONE: Record<string, "brand" | "warning" | "info" | "neutral"> = {
   Reminder: "neutral",
 };
 
-const emptyReminder = (): ReminderInput => ({
+export const emptyReminder = (preset: Partial<ReminderInput> = {}): ReminderInput => ({
   title: "",
   type: "CUSTOM",
   date: todayInput(),
@@ -59,9 +59,13 @@ const emptyReminder = (): ReminderInput => ({
   assetId: "",
   subscriptionId: "",
   active: true,
+  ticketRequesterId: "",
+  ticketCategoryId: "",
+  ticketPriority: "MEDIUM",
+  ...preset,
 });
 
-function ReminderForm({ id, initial, links, onDone }: { id?: string; initial: ReminderInput; links: ReminderLinkOptions; onDone: () => void }) {
+export function ReminderForm({ id, initial, links, onDone }: { id?: string; initial: ReminderInput; links: ReminderLinkOptions; onDone: () => void }) {
   const { form, submit, pending, errors, formError } = useActionForm(reminderSchema, (data) => saveReminder({ id, data }), {
     defaultValues: initial,
     successMessage: id ? "Reminder updated" : "Reminder created",
@@ -77,7 +81,7 @@ function ReminderForm({ id, initial, links, onDone }: { id?: string; initial: Re
         <SelectField
           label="Kind"
           options={Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }))}
-          hint={type === "RECURRING_TASK" ? "Phase 6 will also open a ticket automatically" : undefined}
+          hint={type === "RECURRING_TASK" ? "Opens a ticket each time it comes due" : undefined}
           {...r("type")}
         />
         <SelectField label="Repeats" options={Object.entries(REPEAT_LABEL).map(([value, label]) => ({ value, label }))} {...r("repeatRule")} />
@@ -86,6 +90,22 @@ function ReminderForm({ id, initial, links, onDone }: { id?: string; initial: Re
         {repeat === "CUSTOM_DAYS" && <InputField label="Every (days)" inputMode="numeric" required error={errors.repeatEveryDays?.message} {...r("repeatEveryDays")} />}
         <SelectField label="Asset" placeholder="—" required={type === "PREVENTIVE_MAINTENANCE"} options={links.assets} error={errors.assetId?.message} {...r("assetId")} />
         <SelectField label="Subscription" placeholder="—" options={links.subscriptions} {...r("subscriptionId")} />
+        {type === "RECURRING_TASK" && (
+          <>
+            <SelectField label="Ticket for" required placeholder="Choose requester" options={links.employees} error={errors.ticketRequesterId?.message} {...r("ticketRequesterId")} />
+            <SelectField label="Ticket category" placeholder="—" options={links.categories} {...r("ticketCategoryId")} />
+            <SelectField
+              label="Ticket priority"
+              options={[
+                { value: "LOW", label: "Low" },
+                { value: "MEDIUM", label: "Medium" },
+                { value: "HIGH", label: "High" },
+                { value: "CRITICAL", label: "Critical" },
+              ]}
+              {...r("ticketPriority")}
+            />
+          </>
+        )}
       </FormGrid>
       <TextareaField label="Notes" rows={3} placeholder="Shown in the notification and email" error={errors.notes?.message} {...r("notes")} />
       <label className="flex items-center gap-2 text-[13.5px] text-fg">

@@ -7,7 +7,8 @@ import { istToUtc } from "@/lib/dates";
 import { orNull } from "@/lib/validation";
 import { getCurrentUser, WRITE_ROLES } from "@/lib/session";
 import { runReminders, type RunSummary } from "@/features/notifications/engine";
-import { reminderSaveSchema, type ReminderInput } from "./schema";
+import { Prisma } from "@/generated/prisma/client";
+import { reminderSaveSchema, type ReminderInput, type TicketTemplate } from "./schema";
 
 const toData = (v: ReminderInput) => ({
   title: v.title,
@@ -19,6 +20,10 @@ const toData = (v: ReminderInput) => ({
   assetId: orNull(v.assetId),
   subscriptionId: orNull(v.subscriptionId),
   active: v.active,
+  template:
+    v.type === "RECURRING_TASK"
+      ? ({ requesterId: v.ticketRequesterId, categoryId: orNull(v.ticketCategoryId), priority: v.ticketPriority } satisfies TicketTemplate)
+      : Prisma.DbNull,
 });
 
 export const saveReminder = createAction({

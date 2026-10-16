@@ -14,7 +14,7 @@ import { EmployeeActions, QuickReturnButton } from "@/features/employees/employe
 import { getEmployee, getLookups } from "@/features/employees/queries";
 import { daysBetween, toDateInput, today } from "@/lib/dates";
 import { formatDate, formatMoney, toNumber } from "@/lib/format";
-import { ASSET_CONDITION, ASSET_STATUS, EMPLOYEE_STATUS } from "@/lib/options";
+import { ASSET_CONDITION, ASSET_STATUS, EMPLOYEE_STATUS, TICKET_STATUS } from "@/lib/options";
 import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Employee" };
@@ -175,13 +175,13 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                     cell: (t) => (
                       <span className="flex items-center gap-2">
                         <PriorityDot priority={t.priority} />
-                        <span className="font-mono text-[12.5px] text-fg-muted">{t.ticketNumber}</span>
+                        <Link href={`/tickets/${t.id}`} className="font-mono text-[12.5px] text-fg-muted hover:underline">{t.ticketNumber}</Link>
                       </span>
                     ),
                   },
-                  { header: "Title", cell: (t) => t.title },
+                  { header: "Title", cell: (t) => <Link href={`/tickets/${t.id}`} className="hover:underline">{t.title}</Link> },
                   { header: "Category", cell: (t) => t.category?.name ?? "—" },
-                  { header: "Status", cell: (t) => t.status.replace(/_/g, " ").toLowerCase() },
+                  { header: "Status", cell: (t) => <Badge tone={TICKET_STATUS[t.status].tone}>{TICKET_STATUS[t.status].label}</Badge> },
                   { header: "Opened", cell: (t) => formatDate(t.createdAt) },
                 ]}
               />

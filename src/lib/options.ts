@@ -10,6 +10,9 @@ import type {
   PaymentMode,
   SubscriptionCategory,
   SubscriptionStatus,
+  TicketPriority,
+  TicketSource,
+  TicketStatus,
   VendorCategory,
 } from "@/generated/prisma/enums";
 
@@ -108,3 +111,38 @@ export const DOCUMENT_TYPE: Record<DocumentType, string> = {
 export const categoryColor = (key: string) => (/^chart-[1-7]$/.test(key) ? `var(--${key})` : "var(--chart-7)");
 /** Stack/legend order follows the validated palette order, so adjacent series stay distinguishable. */
 export const categorySlot = (key: string) => (/^chart-([1-7])$/.test(key) ? Number(key.slice(6)) : 7);
+
+export const TICKET_STATUS = opts<TicketStatus>({
+  OPEN: { label: "Open", tone: "info" },
+  IN_PROGRESS: { label: "In progress", tone: "brand" },
+  WAITING_ON_USER: { label: "Waiting on user", tone: "warning" },
+  WAITING_ON_VENDOR: { label: "Waiting on vendor", tone: "warning" },
+  RESOLVED: { label: "Resolved", tone: "success" },
+  CLOSED: { label: "Closed", tone: "neutral" },
+});
+
+export const TICKET_PRIORITY: Record<TicketPriority, string> = { LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" };
+
+export const TICKET_SOURCE: Record<TicketSource, string> = {
+  WALK_IN: "Walk-in",
+  PHONE: "Phone",
+  WHATSAPP: "WhatsApp",
+  EMAIL: "Email",
+  SELF_IDENTIFIED: "Self-identified",
+};
+
+/** "45m", "2h 10m" */
+export function formatMinutes(min: number) {
+  if (!min) return "—";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
+}
+
+/** "3h", "2d" — compact age for cards. */
+export function formatAge(from: Date | string, to: Date = new Date()) {
+  const hours = Math.max(0, (to.getTime() - new Date(from).getTime()) / 3_600_000);
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  if (hours < 48) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
+}

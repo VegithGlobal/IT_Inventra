@@ -56,6 +56,13 @@ async function checkOut(
   if (!before) throw new ActionError("Asset not found.");
   if (before.status === "ASSIGNED") throw new ActionError(`${before.assetTag} is already assigned. Check it in or transfer it.`);
   if (["LOST_STOLEN", "DISPOSED", "RETIRED"].includes(before.status)) throw new ActionError(`${before.assetTag} is ${before.status.toLowerCase().replace("_", "/")} and can't be assigned.`);
+  // An assigned laptop can be away for repair (status UNDER_REPAIR) while its assignment stays open.
+  const [openAssignment, openRepair] = await Promise.all([
+    tx.assetAssignment.findFirst({ where: { assetId: v.assetId, returnedAt: null } }),
+    tx.maintenanceRecord.findFirst({ where: { assetId: v.assetId, status: "OPEN", deletedAt: null } }),
+  ]);
+  if (openAssignment) throw new ActionError(`${before.assetTag} is still checked out. Check it in or transfer it.`);
+  if (openRepair) throw new ActionError(`${before.assetTag} is out for repair. Close the repair first.`);
   const employee = await tx.employee.findFirst({ where: { id: v.employeeId, deletedAt: null } });
   if (!employee) throw new ActionError("Employee not found.");
   if (employee.status === "EXITED") throw new ActionError(`${employee.name} has exited and can't receive assets.`);

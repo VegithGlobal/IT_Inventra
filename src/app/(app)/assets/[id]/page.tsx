@@ -14,9 +14,12 @@ import { assetFormValues, getAsset } from "@/features/assets/queries";
 import { getAssignOptions } from "@/features/assignments/queries";
 import { LinkedDocuments } from "@/features/documents/linked-documents";
 import { getLookups } from "@/features/employees/queries";
+import { SendToRepairButton } from "@/features/maintenance/dialogs";
+import { getMaintenanceLookups } from "@/features/maintenance/queries";
+import { NewTicketButton } from "@/features/tickets/quick-add";
 import { daysBetween, today } from "@/lib/dates";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ASSET_CONDITION, ASSET_STATUS } from "@/lib/options";
+import { ASSET_CONDITION, ASSET_STATUS, TICKET_STATUS } from "@/lib/options";
 import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Asset" };
@@ -34,7 +37,8 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!data) notFound();
   const { asset: a, activity, depreciation } = data;
   const writable = canWrite(user.role);
-  const [lookups, assignOptions] = writable ? await Promise.all([getLookups(), getAssignOptions()]) : [null, null];
+  const [lookups, assignOptions, repairLookups] = writable ? await Promise.all([getLookups(), getAssignOptions(), getMaintenanceLookups()]) : [null, null, null];
+  const openRepair = a.maintenance.find((m) => m.status === "OPEN");
   const open = a.assignments.find((x) => !x.returnedAt) ?? null;
   const specs = Object.entries((a.specs ?? {}) as Record<string, string>);
   const warrantyDays = a.warrantyEnd ? daysBetween(today(), a.warrantyEnd) : null;
@@ -189,30 +193,41 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         </TabsContent>
 
         <TabsContent value="maintenance">
+          {repairLookups && !openRepair && (
+            <div className="mb-3 flex justify-end">
+              <SendToRepairButton lookups={repairLookups} preset={{ assetId: a.id }} />
+            </div>
+          )}
           <SimpleTable
             rows={a.maintenance}
             rowKey={(m) => m.id}
-            empty="No repairs or services logged. Maintenance tracking arrives in Phase 6."
+            empty="No repairs or services logged."
             columns={[
-              { header: "Issue", cell: (m) => m.issue },
+              { header: "Issue", cell: (m) => <Link href="/maintenance" className="hover:underline">{m.issue}</Link> },
               { header: "Sent", cell: (m) => formatDate(m.sentAt) },
               { header: "Vendor", cell: (m) => m.vendor?.name ?? "—" },
-              { header: "Status", cell: (m) => <Badge tone={m.status === "OPEN" ? "warning" : "success"}>{m.status === "OPEN" ? "Open" : "Closed"}</Badge> },
+              { header: "Returned", cell: (m) => (m.returnedAt ? formatDate(m.returnedAt) : <Badge tone="warning" dot>At repair</Badge>) },
+              { header: "Outcome", cell: (m) => <span className="line-clamp-1 text-fg-secondary">{m.outcome ?? "—"}</span> },
               { header: "Cost", align: "right", cell: (m) => (m.cost ? formatMoney(m.cost) : "—") },
             ]}
           />
         </TabsContent>
 
         <TabsContent value="tickets">
+          {writable && (
+            <div className="mb-3 flex justify-end">
+              <NewTicketButton label="New ticket for this asset" preset={{ assetId: a.id, requesterId: a.currentHolderId ?? "", categoryId: "" }} />
+            </div>
+          )}
           <SimpleTable
             rows={a.tickets}
             rowKey={(t) => t.id}
             empty="No tickets linked to this asset."
             columns={[
-              { header: "Ticket", cell: (t) => <span className="font-mono text-[12.5px] text-fg-muted">{t.ticketNumber}</span> },
-              { header: "Title", cell: (t) => t.title },
+              { header: "Ticket", cell: (t) => <Link href={`/tickets/${t.id}`} className="font-mono text-[12.5px] text-fg-muted hover:underline">{t.ticketNumber}</Link> },
+              { header: "Title", cell: (t) => <Link href={`/tickets/${t.id}`} className="hover:underline">{t.title}</Link> },
               { header: "Requester", cell: (t) => t.requester.name },
-              { header: "Status", cell: (t) => t.status.replace(/_/g, " ").toLowerCase() },
+              { header: "Status", cell: (t) => <Badge tone={TICKET_STATUS[t.status].tone}>{TICKET_STATUS[t.status].label}</Badge> },
               { header: "Opened", cell: (t) => formatDate(t.createdAt) },
             ]}
           />

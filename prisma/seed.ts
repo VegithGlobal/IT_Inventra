@@ -415,10 +415,6 @@ async function main() {
 
   // Other expenses: repairs, consumables, services, misc across the last 12 months
   const misc: [string, string, number, string | null, PaymentMode][] = [
-    ["Repairs & Maintenance", "Laptop screen replacement · LAP-0009", 9200, "TechCare", "UPI"],
-    ["Repairs & Maintenance", "Printer fuser unit replacement · PRN-0002", 6400, "TechCare", "CASH"],
-    ["Repairs & Maintenance", "UPS battery replacement (4 × 12V 9Ah)", 14800, "PowerSafe", "BANK_TRANSFER"],
-    ["Repairs & Maintenance", "Keyboard replacement · LAP-0006", 2900, "TechCare", "UPI"],
     ["Consumables", "HP 26A toner cartridges × 3", 17850, "Sai Stationery", "UPI"],
     ["Consumables", "Cat6 patch cables (50) + RJ45 connectors", 4600, "Sai Stationery", "UPI"],
     ["Consumables", "Logitech M90 mice × 10", 3990, "Croma", "CARD"],
@@ -437,7 +433,7 @@ async function main() {
       data: {
         date: daysFromToday(-Math.round(5 + rand() * 350)), categoryId: cat(category), description, ...gstSplit(total),
         vendorId: vend ? vendor(vend) : null, paymentMode: mode, transactionRef: mode === "CASH" ? null : `REF${Math.floor(rand() * 1e9)}`, paidBy: pick(["Admin", "Sneha Pawar", "Accounts"]),
-        source: category === "Repairs & Maintenance" ? "MAINTENANCE" : "MANUAL",
+        source: "MANUAL",
       },
     });
   }
@@ -477,7 +473,7 @@ async function main() {
     });
   }
 
-  // Tickets (Phase 6 builds the UI; seeded now so dashboards have data)
+  // Tickets
   const ticketSeeds: [string, string, string, TicketPriority, TicketStatus, TicketSource, number][] = [
     ["Laptop not charging", "Aarav Sharma", "Hardware", "HIGH", "OPEN", "WALK_IN", 1],
     ["Outlook keeps asking for password", "Neha Gupta", "Email", "MEDIUM", "IN_PROGRESS", "PHONE", 2],
@@ -500,19 +496,88 @@ async function main() {
     ["Request second monitor", "Ananya Iyer", "Hardware", "LOW", "WAITING_ON_USER", "EMAIL", 7],
     ["Monthly backup verification", "Rajesh Agarwal", "Server/Cloud", "MEDIUM", "OPEN", "SELF_IDENTIFIED", 0],
   ];
+  const assetByTag = (tag: string) => assets.find((a) => a.tag === tag)!.id;
+  const ticketAsset: Record<string, string> = {
+    "Laptop not charging": assetByTag("LAP-0001"),
+    "Printer on Floor 3 jamming": assetByTag("PRN-0002"),
+    "Monitor flickering": assetByTag("MON-0002"),
+    "Request second monitor": assetByTag("MON-0004"),
+  };
+  const resolutions: Record<string, string> = {
+    "Need access to finance shared drive": "Added Suresh to the Finance-RW group on the file server; he confirmed access.",
+    "Install Figma desktop app": "Installed Figma desktop and signed in with the team licence.",
+    "Teams calls choppy": "Moved the AP on Floor 4 to channel 44 and enabled band steering. Calls stable since.",
+    "Reset MFA for M365": "Reset MFA in the M365 admin centre and re-enrolled Authenticator on the new phone.",
+    "Shared mailbox for support@": "Created support@ shared mailbox and granted the support team Send As.",
+    "Offboarding — Harsh Vardhan": "Disabled M365 account, converted mailbox to shared, collected LAP-0010.",
+    "Server room AC alarm": "AC compressor tripped; electrician reset it and PowerSafe checked the UPS load.",
+    "Quick Heal license expired on 2 PCs": "Renewed the 2 seats under the annual licence and pushed the update.",
+  };
+  const tickets: { id: string; title: string; status: TicketStatus; createdAt: Date; resolvedAt: Date | null }[] = [];
   for (const [i, [title, requester, category, priority, status, source, age]] of ticketSeeds.entries()) {
     const createdAt = new Date(Date.now() - age * DAY - Math.round(rand() * 6) * 3_600_000);
     const done = status === "RESOLVED" || status === "CLOSED";
-    await db.ticket.create({
+    const resolvedAt = done ? new Date(createdAt.getTime() + Math.round(2 + rand() * 40) * 3_600_000) : null;
+    const t = await db.ticket.create({
       data: {
         ticketNumber: `TKT-${String(i + 1).padStart(4, "0")}`, title, requesterId: emp(requester).id, categoryId: tcat(category), priority, status, source,
+        assetId: ticketAsset[title] ?? null,
         createdAt, dueDate: done ? null : new Date(createdAt.getTime() + (priority === "CRITICAL" ? 1 : priority === "HIGH" ? 2 : 5) * DAY),
-        resolvedAt: done ? new Date(createdAt.getTime() + Math.round(2 + rand() * 40) * 3_600_000) : null,
+        resolvedAt,
         closedAt: status === "CLOSED" ? new Date(createdAt.getTime() + 3 * DAY) : null,
-        timeSpentMinutes: done ? Math.round(15 + rand() * 120) : 0, assigneeId: admin.id, createdById: admin.id,
-        resolutionNotes: done ? "Resolved and confirmed with the requester." : null,
+        timeSpentMinutes: done ? Math.round(15 + rand() * 120) : status === "OPEN" ? 0 : Math.round(10 + rand() * 50), assigneeId: admin.id, createdById: admin.id,
+        resolutionNotes: done ? (resolutions[title] ?? "Resolved and confirmed with the requester.") : null,
       },
     });
+    tickets.push({ id: t.id, title, status, createdAt, resolvedAt });
+  }
+  // Timelines: created → (in progress) → (waiting/resolved), plus a few comments.
+  const comments: Record<string, string[]> = {
+    "Laptop not charging": ["Tried a spare charger — same issue. Likely the DC jack.", "Dell ProSupport case opened: SR 1189023."],
+    "WiFi drops in Conference Room B": ["Airtel says the line is fine; looks like AP interference. TP-Link support ticket raised."],
+    "Printer on Floor 3 jamming": ["Fuser looks worn. Sent to TechCare for service."],
+    "AWS EC2 data volume at 85%": ["Cleared 40 GB of old logs; still need to resize the EBS volume to 750 GB."],
+    "VPN not connecting from home": ["Asked Sneha to update FortiClient to 7.2 — waiting for her to try."],
+  };
+  for (const t of tickets) {
+    const at = (h: number) => new Date(t.createdAt.getTime() + h * 3_600_000);
+    const events: { kind: "SYSTEM" | "STATUS_CHANGE" | "COMMENT"; body: string; meta?: object; createdAt: Date }[] = [{ kind: "SYSTEM", body: "Ticket created", createdAt: t.createdAt }];
+    if (t.status !== "OPEN") events.push({ kind: "STATUS_CHANGE", body: "Status changed", meta: { from: "OPEN", to: "IN_PROGRESS" }, createdAt: at(0.5) });
+    (comments[t.title] ?? []).forEach((body, i) => events.push({ kind: "COMMENT", body, createdAt: at(1 + i * 3) }));
+    if (t.status === "WAITING_ON_USER" || t.status === "WAITING_ON_VENDOR") events.push({ kind: "STATUS_CHANGE", body: "Status changed", meta: { from: "IN_PROGRESS", to: t.status }, createdAt: at(8) });
+    if (t.resolvedAt) events.push({ kind: "STATUS_CHANGE", body: "Status changed", meta: { from: "IN_PROGRESS", to: "RESOLVED" }, createdAt: t.resolvedAt });
+    if (t.status === "CLOSED") events.push({ kind: "STATUS_CHANGE", body: "Status changed", meta: { from: "RESOLVED", to: "CLOSED" }, createdAt: new Date(t.createdAt.getTime() + 3 * DAY) });
+    await db.ticketComment.createMany({ data: events.map((e) => ({ ticketId: t.id, authorId: e.kind === "SYSTEM" ? null : admin.id, ...e })) });
+  }
+
+  // Maintenance: two repairs in progress (one overdue) + closed history. Each cost → a linked expense.
+  const repairCat = cat("Repairs & Maintenance");
+  const repairs: { tag: string; issue: string; vendor: string; sent: number; expected: number | null; returned: number | null; cost: number | null; warranty: boolean; outcome?: string; ticket?: string; previous: AssetStatus }[] = [
+    { tag: "LAP-0009", issue: "Display flickering and hinge cracked", vendor: "TechCare", sent: -6, expected: 2, returned: null, cost: 9200, warranty: false, previous: "IN_STOCK" },
+    { tag: "PRN-0002", issue: "Paper jams; fuser unit worn", vendor: "TechCare", sent: -10, expected: -3, returned: null, cost: null, warranty: false, ticket: "Printer on Floor 3 jamming", previous: "IN_STOCK" },
+    { tag: "LAP-0006", issue: "Keyboard keys not responding", vendor: "TechCare", sent: -130, expected: -125, returned: -124, cost: 2900, warranty: false, outcome: "Keyboard replaced.", previous: "ASSIGNED" },
+    { tag: "UPS-0001", issue: "Battery backup under 5 minutes", vendor: "PowerSafe", sent: -205, expected: -200, returned: -201, cost: 14800, warranty: false, outcome: "Replaced 4 × 12V 9Ah batteries; backup back to 25 min.", previous: "IN_STOCK" },
+    { tag: "LAP-0001", issue: "Battery swelling", vendor: "Dell", sent: -240, expected: -233, returned: -234, cost: null, warranty: true, outcome: "Battery replaced under ProSupport warranty.", previous: "ASSIGNED" },
+  ];
+  for (const r of repairs) {
+    const asset = assets.find((a) => a.tag === r.tag)!;
+    const ticketId = r.ticket ? tickets.find((t) => t.title === r.ticket)?.id ?? null : null;
+    const m = await db.maintenanceRecord.create({
+      data: {
+        assetId: asset.id, issue: r.issue, sentAt: daysFromToday(r.sent), vendorId: vendor(r.vendor), expectedReturnAt: r.expected === null ? null : daysFromToday(r.expected),
+        returnedAt: r.returned === null ? null : daysFromToday(r.returned), cost: r.cost === null ? null : money(r.cost), underWarranty: r.warranty,
+        status: r.returned === null ? "OPEN" : "CLOSED", previousAssetStatus: r.previous, outcome: r.outcome ?? null, ticketId,
+      },
+    });
+    if (r.cost) {
+      await db.expense.create({
+        data: {
+          date: daysFromToday(r.returned ?? r.sent), categoryId: repairCat, description: `Repair · ${r.tag} · ${r.issue}`, amount: money(r.cost), taxAmount: money(0), total: money(r.cost),
+          vendorId: vendor(r.vendor), paymentMode: "UPI", paidBy: "Admin", source: "MAINTENANCE", maintenanceId: m.id, assetId: asset.id, ticketId,
+        },
+      });
+    }
+    if (ticketId) await db.ticketComment.create({ data: { ticketId, authorId: admin.id, kind: "SYSTEM", body: `${r.tag} sent for repair to TechCare Service Centre`, createdAt: daysFromToday(r.sent) } });
   }
 
   // Inventory & licenses (UI in Phase 7)
@@ -540,7 +605,7 @@ async function main() {
   const printer = assets.find((a) => a.tag === "PRN-0001")!;
   await db.reminder.createMany({
     data: [
-      { type: "RECURRING_TASK", title: "Verify server & NAS backups", notes: "Check last night's backup job on the PowerEdge file server and test-restore one folder.", nextRunAt: at(Math.max(1, 32 - istToday.getUTCDate()), 4), repeatRule: "MONTHLY", createdById: admin.id },
+      { type: "RECURRING_TASK", title: "Verify server & NAS backups", notes: "Check last night's backup job on the PowerEdge file server and test-restore one folder.", nextRunAt: at(Math.max(1, 32 - istToday.getUTCDate()), 4), repeatRule: "MONTHLY", createdById: admin.id, template: { requesterId: emp("Vikram Singh").id, categoryId: tcat("Server/Cloud"), priority: "MEDIUM" } },
       { type: "PREVENTIVE_MAINTENANCE", title: "Service HP LaserJet (Floor 4)", notes: "Clean rollers, check fuser, replace toner if under 20%.", nextRunAt: at(5, 4), repeatRule: "QUARTERLY", assetId: printer.id, createdById: admin.id },
       { type: "CUSTOM", title: "Rotate guest Wi-Fi password", notes: "Update the password on the FortiGate and the reception display.", nextRunAt: at(-1, 4), repeatRule: "MONTHLY", createdById: admin.id },
       { type: "CUSTOM", title: "Collect LAP-0008 from Siddharth (last day)", nextRunAt: at(12, 6), repeatRule: "NONE", createdById: admin.id },

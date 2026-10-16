@@ -10,8 +10,8 @@ import { categoryColor } from "@/lib/options";
 
 const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
 const monthYearFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
-const monthLabel = (key: string) => monthFmt.format(new Date(`${key}-01T00:00:00Z`));
-const monthYearLabel = (key: string) => monthYearFmt.format(new Date(`${key}-01T00:00:00Z`));
+export const monthLabel = (key: string) => monthFmt.format(new Date(`${key}-01T00:00:00Z`));
+export const monthYearLabel = (key: string) => monthYearFmt.format(new Date(`${key}-01T00:00:00Z`));
 
 /** Compact axis ticks: ₹0 / ₹50K / ₹1.2L */
 function axisMoney(v: number) {
@@ -21,13 +21,13 @@ function axisMoney(v: number) {
   return `₹${v}`;
 }
 
-const axisProps = {
+export const axisProps = {
   tick: { fill: "var(--text-muted)", fontSize: 12 },
   tickLine: false,
   axisLine: false,
 } as const;
 
-type Series = { key: string; label: string; color: string };
+export type Series = { key: string; label: string; color: string };
 
 export function Legend({ series }: { series: Series[] }) {
   return (
@@ -42,15 +42,17 @@ export function Legend({ series }: { series: Series[] }) {
   );
 }
 
-type TipItem = { dataKey?: unknown; value?: unknown };
+export type TipItem = { dataKey?: unknown; value?: unknown };
 
-function TooltipCard({
+export function TooltipCard({
   active,
   payload,
   label,
   series,
   title,
   showTotal,
+  format = formatMoney,
+  emptyText = "No spend",
 }: {
   active?: boolean;
   payload?: readonly TipItem[];
@@ -58,6 +60,8 @@ function TooltipCard({
   series: Series[];
   title: (label: string) => string;
   showTotal?: boolean;
+  format?: (v: number | null | undefined) => string;
+  emptyText?: string;
 }) {
   if (!active || !payload?.length) return null;
   const values = new Map(payload.map((p) => [String(p.dataKey), typeof p.value === "number" ? p.value : null]));
@@ -66,7 +70,7 @@ function TooltipCard({
   return (
     <div className="min-w-48 rounded-lg border border-line bg-surface px-3 py-2.5 text-[12.5px] shadow-[var(--shadow-popover)]">
       <p className="mb-1.5 font-medium text-fg">{title(String(label))}</p>
-      {rows.length === 0 && <p className="text-fg-muted">No spend</p>}
+      {rows.length === 0 && <p className="text-fg-muted">{emptyText}</p>}
       <ul className="space-y-1">
         {rows
           .slice()
@@ -75,14 +79,14 @@ function TooltipCard({
             <li key={s.key} className="flex items-center gap-2">
               <span className="size-2 shrink-0 rounded-full" style={{ background: s.color }} aria-hidden />
               <span className="flex-1 text-fg-secondary">{s.label}</span>
-              <span className="text-fg tabular">{formatMoney(values.get(s.key))}</span>
+              <span className="text-fg tabular">{format(values.get(s.key))}</span>
             </li>
           ))}
       </ul>
       {showTotal && rows.length > 1 && (
         <p className="mt-1.5 flex justify-between border-t border-line pt-1.5 font-medium text-fg">
           <span>Total</span>
-          <span className="tabular">{formatMoney(total)}</span>
+          <span className="tabular">{format(total)}</span>
         </p>
       )}
     </div>

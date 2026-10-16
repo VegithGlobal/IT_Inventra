@@ -5,6 +5,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader, StatCard, StatSkeleton } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { NewTicketButton } from "@/features/tickets/quick-add";
 import { db } from "@/lib/db";
 import { addDays, daysBetween, startOfMonth, today } from "@/lib/dates";
 import { formatDate, formatMoney, formatMoneyShort, formatNumber } from "@/lib/format";
@@ -26,6 +27,7 @@ async function Greeting() {
       description={formatDate(today())}
       actions={
         <>
+          <NewTicketButton />
           <Button asChild size="sm">
             <Link href="/expenses?new=1">+ Expense</Link>
           </Button>

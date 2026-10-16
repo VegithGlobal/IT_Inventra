@@ -7,6 +7,7 @@ import { EditSheet } from "@/components/edit-sheet";
 import { useActionRunner } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { AssignDialog } from "@/features/assignments/dialogs";
+import { NewTicketButton } from "@/features/tickets/quick-add";
 import { quickReturn } from "@/features/assignments/actions";
 import type { AssignOptions } from "@/features/assignments/queries";
 import { archiveEmployee } from "./actions";
@@ -43,6 +44,7 @@ export function EmployeeActions({
         redirectTo="/employees"
         danger
       />
+      {canAssign && <NewTicketButton label="New ticket" preset={{ requesterId: id }} />}
       <EditSheet title="Edit employee">{(close) => <EmployeeForm id={id} initial={initial} lookups={lookups} onDone={close} />}</EditSheet>
       {canAssign && (
         <Button size="sm" variant="primary" onClick={() => setAssignOpen(true)}>

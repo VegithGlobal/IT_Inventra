@@ -7,7 +7,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { openQuickTicket } from "@/features/tickets/quick-add";
 import { BUILT_PHASE, NAV } from "./nav";
 import { Logo, NavList } from "./sidebar";
 
@@ -28,6 +29,7 @@ Object.assign(LABELS, {
 
 /** "+ New" menu. Links open the create flow on each module's page via ?new=1. */
 export const CREATE_ITEMS = [
+  { label: "Log repair", href: "/maintenance?new=1" },
   { label: "Asset", href: "/assets?new=1" },
   { label: "Assign asset", href: "/assignments?assign=1" },
   { label: "Subscription", href: "/subscriptions?new=1" },
@@ -101,6 +103,18 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
                   ))}
               </Command.Group>
               <Command.Group heading="Create" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:text-fg-muted">
+                <Command.Item
+                  value="new ticket"
+                  onSelect={() => {
+                    onOpenChange(false);
+                    openQuickTicket();
+                  }}
+                  className={itemCls}
+                >
+                  <Plus />
+                  New ticket
+                  <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
+                </Command.Item>
                 {CREATE_ITEMS.map((c) => (
                   <Command.Item key={c.href} value={`new ${c.label}`} onSelect={() => go(c.href)} className={itemCls}>
                     <Plus />
@@ -184,6 +198,11 @@ export function Topbar({ userCard, bell }: { userCard: ReactNode; bell: ReactNod
           </Button>
         </MenuTrigger>
         <MenuContent>
+          <MenuItem onSelect={() => openQuickTicket()}>
+            Ticket
+            <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
+          </MenuItem>
+          <MenuSeparator />
           {CREATE_ITEMS.map((c) => (
             <MenuItem key={c.href} asChild>
               <Link href={c.href}>{c.label}</Link>

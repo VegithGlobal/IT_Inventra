@@ -2,7 +2,7 @@ import "server-only";
 import { addDays, daysBetween, HOUR_MS, istDateOf, utcToIstInputs } from "@/lib/dates";
 import { db } from "@/lib/db";
 import { formatMoney } from "@/lib/format";
-import type { ReminderInput } from "./schema";
+import type { ReminderInput, TicketTemplate } from "./schema";
 
 export async function listReminders() {
   const rows = await db.reminder.findMany({
@@ -12,6 +12,7 @@ export async function listReminders() {
   });
   return rows.map((r) => {
     const { date, time } = utcToIstInputs(r.nextRunAt);
+    const tpl = (r.template ?? null) as Partial<TicketTemplate> | null;
     return {
       id: r.id,
       title: r.title,
@@ -34,6 +35,9 @@ export async function listReminders() {
         assetId: r.assetId ?? "",
         subscriptionId: r.subscriptionId ?? "",
         active: r.active,
+        ticketRequesterId: tpl?.requesterId ?? "",
+        ticketCategoryId: tpl?.categoryId ?? "",
+        ticketPriority: tpl?.priority ?? "MEDIUM",
       } satisfies ReminderInput,
     };
   });
@@ -86,11 +90,15 @@ export async function getUpcoming(days = 30): Promise<UpcomingItem[]> {
 }
 
 export async function getReminderLinkOptions() {
-  const [assets, subscriptions] = await Promise.all([
+  const [assets, subscriptions, employees, categories] = await Promise.all([
     db.asset.findMany({ where: { deletedAt: null }, orderBy: { assetTag: "asc" }, select: { id: true, assetTag: true, name: true } }),
     db.subscription.findMany({ where: { deletedAt: null, status: { not: "CANCELLED" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.employee.findMany({ where: { deletedAt: null, status: { not: "EXITED" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    db.ticketCategory.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
   ]);
   return {
+    employees: employees.map((e) => ({ value: e.id, label: e.name })),
+    categories: categories.map((c) => ({ value: c.id, label: c.name })),
     assets: assets.map((a) => ({ value: a.id, label: `${a.assetTag} · ${a.name}` })),
     subscriptions: subscriptions.map((s) => ({ value: s.id, label: s.name })),
   };

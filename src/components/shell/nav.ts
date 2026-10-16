@@ -29,7 +29,7 @@ export type NavItem = {
 export type NavGroup = { label: string | null; items: NavItem[] };
 
 /** Highest phase built so far. Modules from later phases show as "coming soon". */
-export const BUILT_PHASE = 5;
+export const BUILT_PHASE = 6;
 
 export const NAV: NavGroup[] = [
   { label: "Overview", items: [{ label: "Dashboard", href: "/", icon: LayoutDashboard, phase: 1 }] },

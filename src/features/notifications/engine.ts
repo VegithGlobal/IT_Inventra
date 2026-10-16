@@ -6,6 +6,9 @@ import { digestHtml, emailConfigured, sendEmail } from "@/lib/email";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/format";
 import { nextOccurrenceAfter } from "@/lib/repeat";
 import { getEmailSettings, getReminderSettings, type ReminderSettings } from "@/lib/settings";
+import { writeAudit } from "@/lib/audit";
+import type { TicketTemplate } from "@/features/reminders/schema";
+import { createTicketRecord } from "@/features/tickets/server";
 
 /**
  * Reminder engine. Scans the data, emits notification "events", and stores one Notification per
@@ -153,20 +156,47 @@ async function customReminderEvents(now: Date, dryRun: boolean): Promise<Reminde
   const due = await db.reminder.findMany({ where: { deletedAt: null, active: true, nextRunAt: { lte: now } } });
   const out: ReminderEvent[] = [];
   for (const r of due) {
-    out.push({
+    const event: ReminderEvent = {
       type: r.type === "PREVENTIVE_MAINTENANCE" ? "MAINTENANCE_DUE" : "REMINDER",
       key: `reminder:${r.id}:${r.nextRunAt.toISOString()}`,
       title: r.type === "RECURRING_TASK" ? `Recurring task: ${r.title}` : r.title,
       body: r.notes ?? `Scheduled for ${formatDateTime(r.nextRunAt)}`,
       href: r.assetId ? `/assets/${r.assetId}` : r.subscriptionId ? `/subscriptions/${r.subscriptionId}` : "/reminders",
-    });
-    if (dryRun) continue;
+    };
+    if (dryRun) {
+      out.push(event);
+      continue;
+    }
     const next = nextOccurrenceAfter(r.nextRunAt, r.repeatRule, r.repeatEveryDays, now);
-    // Conditional on nextRunAt so two overlapping runs can't both advance it.
-    await db.reminder.updateMany({
-      where: { id: r.id, nextRunAt: r.nextRunAt },
-      data: { lastTriggeredAt: now, ...(next ? { nextRunAt: next } : { active: false }) },
+    const template = r.type === "RECURRING_TASK" ? ((r.template ?? null) as Partial<TicketTemplate> | null) : null;
+    const opened = await db.$transaction(async (tx) => {
+      // Conditional on nextRunAt so two overlapping runs can't both advance it (or open two tickets).
+      const { count } = await tx.reminder.updateMany({
+        where: { id: r.id, nextRunAt: r.nextRunAt },
+        data: { lastTriggeredAt: now, ...(next ? { nextRunAt: next } : { active: false }) },
+      });
+      if (count === 0 || !template?.requesterId) return null;
+      const requester = await tx.employee.findFirst({ where: { id: template.requesterId, deletedAt: null } });
+      if (!requester) return null;
+      const ticket = await createTicketRecord(
+        tx,
+        {
+          title: r.title,
+          description: r.notes,
+          requesterId: requester.id,
+          categoryId: template.categoryId ?? null,
+          priority: template.priority ?? "MEDIUM",
+          source: "SELF_IDENTIFIED",
+          assetId: r.assetId,
+          dueDate: new Date(now.getTime() + 24 * HOUR_MS),
+          reminderId: r.id,
+        },
+        "Created automatically by a recurring task",
+      );
+      await writeAudit(tx, null, { action: "CREATE", entityType: "Ticket", entityId: ticket.id, entityLabel: `${ticket.ticketNumber} · ${ticket.title} (recurring task)`, after: ticket });
+      return ticket;
     });
+    out.push(opened ? { ...event, title: `${event.title} → ${opened.ticketNumber} opened`, href: `/tickets/${opened.id}` } : event);
   }
   return out;
 }
