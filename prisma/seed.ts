@@ -535,6 +535,18 @@ async function main() {
     data: { name: "Figma Professional", type: "PER_USER", totalSeats: 2, purchaseDate: daysFromToday(-330), expiryDate: daysFromToday(35), cost: money(29800) },
   });
 
+  // Custom reminders (times are IST: 09:30 IST = 04:00 UTC)
+  const at = (days: number, utcHour: number) => new Date(daysFromToday(days).getTime() + utcHour * 3_600_000);
+  const printer = assets.find((a) => a.tag === "PRN-0001")!;
+  await db.reminder.createMany({
+    data: [
+      { type: "RECURRING_TASK", title: "Verify server & NAS backups", notes: "Check last night's backup job on the PowerEdge file server and test-restore one folder.", nextRunAt: at(Math.max(1, 32 - istToday.getUTCDate()), 4), repeatRule: "MONTHLY", createdById: admin.id },
+      { type: "PREVENTIVE_MAINTENANCE", title: "Service HP LaserJet (Floor 4)", notes: "Clean rollers, check fuser, replace toner if under 20%.", nextRunAt: at(5, 4), repeatRule: "QUARTERLY", assetId: printer.id, createdById: admin.id },
+      { type: "CUSTOM", title: "Rotate guest Wi-Fi password", notes: "Update the password on the FortiGate and the reception display.", nextRunAt: at(-1, 4), repeatRule: "MONTHLY", createdById: admin.id },
+      { type: "CUSTOM", title: "Collect LAP-0008 from Siddharth (last day)", nextRunAt: at(12, 6), repeatRule: "NONE", createdById: admin.id },
+    ],
+  });
+
   console.log(`Seeded: ${employees.length} employees (${activeEmployees.length} active), ${assets.length} assets, ${createdSubs.length} subscriptions, ${ticketSeeds.length} tickets.`);
   console.log(`Login: admin@company.com / ${password === "Admin@123" ? "Admin@123" : "(SEED_ADMIN_PASSWORD)"}`);
 }

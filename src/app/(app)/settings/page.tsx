@@ -1,4 +1,4 @@
-import { ChevronRight, MapPin, Network, Shapes, type LucideIcon } from "lucide-react";
+import { Bell, ChevronRight, MapPin, Network, Shapes, type LucideIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page";
@@ -9,12 +9,13 @@ const SECTIONS: { title: string; description: string; href: string; icon: Lucide
   { title: "Departments", description: "Engineering, Sales, Finance…", href: "/settings/departments", icon: Network },
   { title: "Locations", description: "Offices, floors and rooms", href: "/settings/locations", icon: MapPin },
   { title: "Asset types", description: "Tag prefixes and depreciation", href: "/settings/asset-types", icon: Shapes },
+  { title: "Notifications", description: "Reminder timing, email, scheduled job", href: "/settings/notifications", icon: Bell },
 ];
 
 export default function SettingsPage() {
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Settings" description="Master data used across the app. Company profile, email and backups arrive in Phase 8." />
+      <PageHeader title="Settings" description="Master data and notifications. Company profile, users and backups arrive in Phase 8." />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {SECTIONS.map((s) => (
           <Link

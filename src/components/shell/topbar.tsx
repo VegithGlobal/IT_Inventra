@@ -23,6 +23,7 @@ Object.assign(LABELS, {
   "asset-types": "Asset types",
   label: "Label",
   import: "Import",
+  notifications: "Notifications",
 });
 
 /** "+ New" menu. Links open the create flow on each module's page via ?new=1. */
@@ -115,7 +116,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
   );
 }
 
-export function Topbar({ userCard }: { userCard: ReactNode }) {
+export function Topbar({ userCard, bell }: { userCard: ReactNode; bell: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -172,6 +173,8 @@ export function Topbar({ userCard }: { userCard: ReactNode }) {
       <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setPaletteOpen(true)} aria-label="Search">
         <Search />
       </Button>
+
+      {bell}
 
       <Menu>
         <MenuTrigger asChild>

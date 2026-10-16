@@ -37,7 +37,9 @@ export function addMonths(date: Date, months: number): Date {
   const y = date.getUTCFullYear();
   const m = date.getUTCMonth() + months;
   const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)));
+  // Keep the time of day (0 for @db.Date values; meaningful for reminder timestamps).
+  const timeOfDay = ((date.getTime() % DAY_MS) + DAY_MS) % DAY_MS;
+  return new Date(Date.UTC(y, m, Math.min(date.getUTCDate(), lastDay)) + timeOfDay);
 }
 
 /** Whole days from a to b (b − a) for UTC-midnight dates. */
@@ -52,3 +54,27 @@ export function startOfMonth(date: Date): Date {
 export function monthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
+
+// ─── Date-times (reminders) — entered and shown in IST (UTC+05:30, no DST) ─────
+
+const IST_OFFSET_MS = 330 * 60_000;
+
+/** "2026-10-20" + "09:00" in IST → the UTC instant. */
+export function istToUtc(date: string, time: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.split(":").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hh, mm) - IST_OFFSET_MS);
+}
+
+/** UTC instant → { date: "2026-10-20", time: "09:00" } in IST, for form inputs. */
+export function utcToIstInputs(value: Date | string): { date: string; time: string } {
+  const ist = new Date(new Date(value).getTime() + IST_OFFSET_MS).toISOString();
+  return { date: ist.slice(0, 10), time: ist.slice(11, 16) };
+}
+
+/** The IST calendar date of an instant, as UTC midnight (comparable with @db.Date values). */
+export function istDateOf(value: Date): Date {
+  return parseDateInput(utcToIstInputs(value).date);
+}
+
+export const HOUR_MS = 3_600_000;
