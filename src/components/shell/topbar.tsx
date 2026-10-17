@@ -25,6 +25,10 @@ Object.assign(LABELS, {
   label: "Label",
   import: "Import",
   notifications: "Notifications",
+  company: "Company profile",
+  users: "Users & roles",
+  categories: "Categories",
+  backup: "Backup",
 });
 
 /** "+ New" menu. Links open the create flow on each module's page via ?new=1. */
@@ -72,58 +76,127 @@ function Breadcrumbs() {
   );
 }
 
+const groupCls = "[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:text-fg-muted";
+
+type SearchGroup = { label: string; hits: { id: string; title: string; subtitle: string; href: string }[] };
+
+/** Debounced record search against /api/search. */
+function useRecordSearch(q: string) {
+  const [state, setState] = useState<{ q: string; groups: SearchGroup[] }>({ q: "", groups: [] });
+  useEffect(() => {
+    const term = q.trim();
+    if (term.length < 2) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal });
+        if (res.ok) setState({ q: term, groups: ((await res.json()) as { groups: SearchGroup[] }).groups });
+      } catch {
+        // aborted or offline — keep the previous results
+      }
+    }, 180);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [q]);
+  const term = q.trim();
+  return { groups: term.length >= 2 && state.q === term ? state.groups : [], loading: term.length >= 2 && state.q !== term };
+}
+
 function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const router = useRouter();
+  const [q, setQ] = useState("");
+  const { groups, loading } = useRecordSearch(q);
   const go = (href: string) => {
     onOpenChange(false);
-    router.push(href);
+    setQ("");
+    if (href.startsWith("/api/")) window.open(href, "_blank", "noopener");
+    else router.push(href);
   };
   const itemCls =
-    "flex h-9 cursor-pointer items-center gap-3 rounded-md px-3 text-[13.5px] text-fg data-[selected=true]:bg-subtle [&_svg]:size-4 [&_svg]:text-fg-muted";
+    "flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-[13.5px] text-fg data-[selected=true]:bg-subtle [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-muted";
+  const term = q.trim().toLowerCase();
+  const pages = NAV.flatMap((g) => g.items).filter((i) => i.phase <= BUILT_PHASE && (!term || i.label.toLowerCase().includes(term)));
+  const creates = [{ label: "Ticket", href: "" }, ...CREATE_ITEMS].filter((c) => !term || `new ${c.label}`.toLowerCase().includes(term));
   return (
-    <D.Root open={open} onOpenChange={onOpenChange}>
+    <D.Root
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o);
+        if (!o) setQ("");
+      }}
+    >
       <D.Portal>
         <D.Overlay className="fixed inset-0 z-50 bg-fg/20" />
-        <D.Content className="fixed top-[15vh] left-1/2 z-50 w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-overlay)] outline-none">
+        <D.Content className="fixed top-[12vh] left-1/2 z-50 w-[calc(100vw-32px)] max-w-xl -translate-x-1/2 overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-overlay)] outline-none">
           <D.Title className="sr-only">Search</D.Title>
-          <D.Description className="sr-only">Jump to a page or create something new</D.Description>
-          <Command label="Command palette">
+          <D.Description className="sr-only">Search assets, people, tickets, subscriptions and invoices, or jump to a page</D.Description>
+          {/* Filtering is done here (records come pre-filtered from the server). */}
+          <Command label="Search" shouldFilter={false}>
             <div className="flex items-center gap-2 border-b border-line px-4">
               <Search className="size-4 text-fg-muted" aria-hidden />
-              <Command.Input placeholder="Jump to…" className="h-12 flex-1 bg-transparent text-[14px] outline-none placeholder:text-fg-muted" />
+              <Command.Input
+                value={q}
+                onValueChange={setQ}
+                placeholder="Search assets, people, tickets, invoices…"
+                className="h-12 flex-1 bg-transparent text-[14px] outline-none placeholder:text-fg-muted"
+              />
+              {loading && <span className="text-[12px] text-fg-muted">Searching…</span>}
             </div>
-            <Command.List className="max-h-80 overflow-y-auto p-2">
-              <Command.Empty className="py-8 text-center text-[13px] text-fg-muted">No matches.</Command.Empty>
-              <Command.Group heading="Go to" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:text-fg-muted">
-                {NAV.flatMap((g) => g.items)
-                  .filter((i) => i.phase <= BUILT_PHASE)
-                  .map((i) => (
+            <Command.List className="max-h-[60vh] overflow-y-auto p-2">
+              {term.length >= 2 && !loading && groups.length === 0 && pages.length === 0 && creates.length === 0 && (
+                <p className="py-8 text-center text-[13px] text-fg-muted">No matches for “{q.trim()}”.</p>
+              )}
+              {groups.map((g) => (
+                <Command.Group key={g.label} heading={g.label} className={groupCls}>
+                  {g.hits.map((h) => (
+                    <Command.Item key={h.id} value={`${g.label}-${h.id}`} onSelect={() => go(h.href)} className={itemCls}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate">{h.title}</span>
+                        {h.subtitle && <span className="block truncate text-[12px] text-fg-muted">{h.subtitle}</span>}
+                      </span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              ))}
+              {pages.length > 0 && (
+                <Command.Group heading="Go to" className={groupCls}>
+                  {pages.map((i) => (
                     <Command.Item key={i.href} value={`go ${i.label}`} onSelect={() => go(i.href)} className={itemCls}>
                       <i.icon />
                       {i.label}
                     </Command.Item>
                   ))}
-              </Command.Group>
-              <Command.Group heading="Create" className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11.5px] [&_[cmdk-group-heading]]:text-fg-muted">
-                <Command.Item
-                  value="new ticket"
-                  onSelect={() => {
-                    onOpenChange(false);
-                    openQuickTicket();
-                  }}
-                  className={itemCls}
-                >
-                  <Plus />
-                  New ticket
-                  <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
-                </Command.Item>
-                {CREATE_ITEMS.map((c) => (
-                  <Command.Item key={c.href} value={`new ${c.label}`} onSelect={() => go(c.href)} className={itemCls}>
-                    <Plus />
-                    New {c.label.toLowerCase()}
-                  </Command.Item>
-                ))}
-              </Command.Group>
+                </Command.Group>
+              )}
+              {creates.length > 0 && (
+                <Command.Group heading="Create" className={groupCls}>
+                  {creates.map((c) =>
+                    c.href ? (
+                      <Command.Item key={c.href} value={`new ${c.label}`} onSelect={() => go(c.href)} className={itemCls}>
+                        <Plus />
+                        New {c.label.toLowerCase()}
+                      </Command.Item>
+                    ) : (
+                      <Command.Item
+                        key="ticket"
+                        value="new ticket"
+                        onSelect={() => {
+                          onOpenChange(false);
+                          setQ("");
+                          openQuickTicket();
+                        }}
+                        className={itemCls}
+                      >
+                        <Plus />
+                        New ticket
+                        <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
+                      </Command.Item>
+                    ),
+                  )}
+                </Command.Group>
+              )}
             </Command.List>
           </Command>
         </D.Content>
@@ -132,7 +205,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
   );
 }
 
-export function Topbar({ userCard, bell }: { userCard: ReactNode; bell: ReactNode }) {
+export function Topbar({ userCard, bell, brand }: { userCard: ReactNode; bell: ReactNode; brand: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -161,7 +234,7 @@ export function Topbar({ userCard, bell }: { userCard: ReactNode; bell: ReactNod
             <D.Title className="sr-only">Navigation</D.Title>
             <D.Description className="sr-only">Main navigation</D.Description>
             <div className="flex h-16 items-center px-4">
-              <Logo />
+              <Logo mark={brand} />
             </div>
             <div className="flex-1 overflow-y-auto px-3 py-2">
               <NavList onNavigate={() => setDrawerOpen(false)} />

@@ -36,10 +36,16 @@ export function HandoverDocument({ kind, a, company }: { kind: "handover" | "ret
   return (
     <article className="mx-auto my-8 w-full max-w-[794px] bg-surface p-12 shadow-[var(--shadow-popover)] print:my-0 print:max-w-none print:p-0 print:shadow-none">
       <header className="flex items-start justify-between gap-6 border-b-2 border-fg pb-5">
-        <div>
+        <div className="flex items-start gap-3">
+          {company.logoKey && (
+            // eslint-disable-next-line @next/next/no-img-element -- authenticated route, not a static asset
+            <img src="/api/branding/logo" alt="" className="h-12 w-auto max-w-28 object-contain" />
+          )}
+          <div>
           <p className="text-[18px] font-semibold text-fg">{company.name}</p>
           {company.address && <p className="text-[12.5px] text-fg-secondary">{company.address}</p>}
           {company.gstin && <p className="text-[12.5px] text-fg-secondary">GSTIN {company.gstin}</p>}
+          </div>
         </div>
         <div className="text-right">
           <h1 className="text-[20px] font-semibold tracking-[-0.01em] text-fg">{isReturn ? "Asset Return Form" : "Asset Handover Form"}</h1>

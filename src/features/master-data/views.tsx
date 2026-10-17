@@ -280,10 +280,10 @@ function AssetTypeForm({ editing, locked, onDone }: { editing: NonNullable<Editi
   );
 }
 
-export function AssetTypesView({ rows, isAdmin }: { rows: AssetTypeRow[]; isAdmin: boolean }) {
+export function AssetTypesView({ rows, isAdmin, defaultSalvage = "5" }: { rows: AssetTypeRow[]; isAdmin: boolean; defaultSalvage?: string }) {
   const [newOpen, setNewOpen] = useQueryFlag("new");
   const [editing, setEditing] = useState<(NonNullable<Editing<AssetTypeInput>> & { locked: boolean }) | null>(null);
-  const active = editing ?? (newOpen ? { values: { name: "", prefix: "", usefulLifeMonths: "36", salvagePercent: "5" }, locked: false } : null);
+  const active = editing ?? (newOpen ? { values: { name: "", prefix: "", usefulLifeMonths: "36", salvagePercent: defaultSalvage }, locked: false } : null);
   const close = () => {
     setEditing(null);
     setNewOpen(false);

@@ -37,7 +37,8 @@ function diffOf(before: Record<string, unknown> | null, after: Record<string, un
 
 const asJson = (v: unknown) => (v === null ? undefined : (v as Prisma.InputJsonValue));
 
-export async function writeAudit(tx: Tx, actorId: string | null, entry: AuditEntry) {
+/** Accepts a transaction or the plain client (e.g. for exports outside a transaction). */
+export async function writeAudit(tx: Pick<Tx, "auditLog">, actorId: string | null, entry: AuditEntry) {
   const before = snapshot(entry.before);
   const after = snapshot(entry.after);
   const diff = entry.action === "UPDATE" ? diffOf(before, after) : null;

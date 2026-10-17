@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { BrandMark } from "@/components/shell/brand";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Topbar } from "@/components/shell/topbar";
 import { UserCardView } from "@/components/shell/user-card";
@@ -23,9 +24,9 @@ function UserCardSlot() {
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-dvh">
-      <Sidebar userCard={<UserCardSlot />} />
+      <Sidebar userCard={<UserCardSlot />} brand={<BrandMark />} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar userCard={<UserCardSlot />} bell={<NotificationBell />} />
+        <Topbar userCard={<UserCardSlot />} bell={<NotificationBell />} brand={<BrandMark />} />
         <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 md:px-8 md:py-8">{children}</main>
         <QuickTicketSlot />
       </div>

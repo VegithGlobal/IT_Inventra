@@ -7,6 +7,7 @@ export type CompanySettings = {
   gstin?: string | null;
   address?: string | null;
   logoKey?: string | null;
+  logoMime?: string | null;
   currency: string;
   timezone: string;
   dateFormat: string;
@@ -21,6 +22,11 @@ async function read<T>(key: string): Promise<Partial<T>> {
 
 export async function getCompany(): Promise<CompanySettings> {
   return { ...DEFAULT_COMPANY, ...(await read<CompanySettings>("company")) };
+}
+
+export async function getDepreciationDefaults(): Promise<{ defaultSalvagePercent: number }> {
+  const v = await read<{ defaultSalvagePercent: number }>("depreciation");
+  return { defaultSalvagePercent: v.defaultSalvagePercent ?? 5 };
 }
 
 export type ReminderSettings = {

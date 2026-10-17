@@ -37,12 +37,10 @@ function useCollapsed() {
   );
 }
 
-export function Logo({ collapsed }: { collapsed?: boolean }) {
+export function Logo({ collapsed, mark }: { collapsed?: boolean; mark: ReactNode }) {
   return (
     <Link href="/" className="flex items-center gap-2.5 rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-fg/15">
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-action text-[13px] font-semibold text-action-fg">
-        IT
-      </span>
+      {mark}
       {!collapsed && <span className="text-[15px] font-semibold tracking-[-0.01em] text-fg">IT Ops Hub</span>}
     </Link>
   );
@@ -120,7 +118,7 @@ function NavLinks({ collapsed = false, onNavigate, pathname }: NavListProps & { 
 }
 
 /** Desktop/tablet sidebar: 240px, collapsible to a 64px rail (remembered). */
-export function Sidebar({ userCard }: { userCard: ReactNode }) {
+export function Sidebar({ userCard, brand }: { userCard: ReactNode; brand: ReactNode }) {
   const collapsed = useCollapsed();
   return (
     <aside
@@ -131,11 +129,11 @@ export function Sidebar({ userCard }: { userCard: ReactNode }) {
     >
       <div className={cn("flex h-16 items-center px-4", collapsed ? "justify-center" : "justify-center xl:justify-between")}>
         <span className={cn(!collapsed && "xl:hidden")}>
-          <Logo collapsed />
+          <Logo collapsed mark={brand} />
         </span>
         {!collapsed && (
           <span className="hidden xl:block">
-            <Logo />
+            <Logo mark={brand} />
           </span>
         )}
       </div>
