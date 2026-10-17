@@ -151,6 +151,27 @@ async function maintenanceEvents(today: Date): Promise<ReminderEvent[]> {
   });
 }
 
+/** Leavers (last day tomorrow or earlier) who still have active logins. Weekly while any stay open. */
+async function accountOffboardingEvents(today: Date): Promise<ReminderEvent[]> {
+  const leavers = await db.employee.findMany({
+    where: {
+      deletedAt: null,
+      OR: [{ status: "EXITED" }, { status: "LEAVING", exitDate: { lte: addDays(today, 1) } }],
+      accounts: { some: { deletedAt: null, status: "ACTIVE" } },
+    },
+    include: { accounts: { where: { deletedAt: null, status: "ACTIVE" }, include: { system: { select: { name: true } } } } },
+  });
+  return leavers.map((e) => {
+    const days = e.exitDate ? daysBetween(today, e.exitDate) : -1;
+    const list = e.accounts.map((a) => a.system.name);
+    const body = `${list.slice(0, 6).join(", ")}${list.length > 6 ? ` +${list.length - 6} more` : ""}`;
+    const n = plural(e.accounts.length, "active login");
+    return days >= 0
+      ? { type: "ACCOUNT_OFFBOARDING" as const, key: `accounts-leaving:${e.id}:${iso(e.exitDate!)}`, title: `${e.name} leaves ${inDays(days)} — ${n} to block`, body, href: `/employees/${e.id}` }
+      : { type: "ACCOUNT_OFFBOARDING" as const, key: `accounts-open:${e.id}:w${Math.floor((-days - 1) / 7)}`, title: `${e.name} has left but still has ${n}`, body, href: `/employees/${e.id}` };
+  });
+}
+
 /** Custom / recurring reminders whose time has come. Advances repeating ones (once, even if long overdue). */
 async function customReminderEvents(now: Date, dryRun: boolean): Promise<ReminderEvent[]> {
   const due = await db.reminder.findMany({ where: { deletedAt: null, active: true, nextRunAt: { lte: now } } });
@@ -212,6 +233,7 @@ export async function collectEvents(now: Date, opts: { dryRun?: boolean } = {}) 
     ticketEvents(now, settings),
     assetReturnEvents(today, settings),
     maintenanceEvents(today),
+    accountOffboardingEvents(today),
   ]);
   // Custom reminders mutate state, so they run after the read-only scans.
   groups.push(await customReminderEvents(now, !!opts.dryRun));

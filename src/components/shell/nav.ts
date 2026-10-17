@@ -7,6 +7,7 @@ import {
   CreditCard,
   FileText,
   KeyRound,
+  KeySquare,
   LayoutDashboard,
   Laptop,
   ScrollText,
@@ -57,6 +58,7 @@ export const NAV: NavGroup[] = [
     label: "Directory",
     items: [
       { label: "Employees", href: "/employees", icon: Users },
+      { label: "Accounts & logins", href: "/accounts", icon: KeySquare },
       { label: "Vendors", href: "/vendors", icon: Building2 },
     ],
   },

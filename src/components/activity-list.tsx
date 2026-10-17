@@ -10,8 +10,8 @@ type Entry = {
   actor: { name: string } | null;
 };
 
-const VERB: Record<string, string> = { CREATE: "created", UPDATE: "updated", DELETE: "archived", RESTORE: "restored" };
-const HIDDEN = new Set(["id", "deletedAt", "currentHolderId", "typeId", "vendorId", "locationId", "departmentId"]);
+const VERB: Record<string, string> = { CREATE: "created", UPDATE: "updated", DELETE: "archived", RESTORE: "restored", REVEAL: "viewed the password of" };
+const HIDDEN = new Set(["id", "deletedAt", "currentHolderId", "typeId", "vendorId", "locationId", "departmentId", "employeeId", "systemId", "closedById"]);
 
 function show(v: unknown) {
   if (v === null || v === undefined || v === "") return "—";

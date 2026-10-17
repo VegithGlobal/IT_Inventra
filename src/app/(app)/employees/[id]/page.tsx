@@ -1,4 +1,4 @@
-import { TriangleAlert } from "lucide-react";
+import { CircleCheck, ClipboardList, TriangleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -6,16 +6,20 @@ import { Suspense } from "react";
 import { SimpleTable } from "@/components/simple-table";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge, PriorityDot } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageSkeleton, StatCard } from "@/components/ui/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AddAccountButton, CloseAccountsButton, QuickDisableButton } from "@/features/accounts/account-ui";
+import { AccountStatusBadge, MfaLabel } from "@/features/accounts/accounts-view";
+import { getAccountLookups } from "@/features/accounts/queries";
 import { getAssignOptions } from "@/features/assignments/queries";
 import { EmployeeActions, QuickReturnButton } from "@/features/employees/employee-actions";
 import { RevokeSeatButton } from "@/features/licenses/license-ui";
 import { getEmployee, getLookups } from "@/features/employees/queries";
 import { daysBetween, toDateInput, today } from "@/lib/dates";
 import { formatDate, formatMoney, toNumber } from "@/lib/format";
-import { ASSET_CONDITION, ASSET_STATUS, EMPLOYEE_STATUS, TICKET_STATUS } from "@/lib/options";
+import { ASSET_CONDITION, ASSET_STATUS, EMPLOYEE_STATUS, SYSTEM_CATEGORY, TICKET_STATUS } from "@/lib/options";
 import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Employee" };
@@ -25,11 +29,21 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   const [user, e] = await Promise.all([requireUser(), getEmployee(id)]);
   if (!e) notFound();
   const writable = canWrite(user.role);
-  const [lookups, assignOptions] = writable ? await Promise.all([getLookups(), getAssignOptions()]) : [null, null];
+  const [lookups, assignOptions, accountLookups] = writable ? await Promise.all([getLookups(), getAssignOptions(), getAccountLookups()]) : [null, null, null];
 
   const open = e.assignments.filter((a) => !a.returnedAt);
   const heldValue = e.heldAssets.reduce((s, a) => s + toNumber(a.purchaseCost), 0);
-  const offboarding = e.status !== "ACTIVE" && (open.length > 0 || e.licenseSeats.length > 0);
+  const openLogins = e.accounts.filter((a) => a.status === "ACTIVE");
+  const offboarding = e.status !== "ACTIVE" && (open.length > 0 || e.licenseSeats.length > 0 || openLogins.length > 0);
+  const offboarded = e.status !== "ACTIVE" && !offboarding;
+  const checklist = (
+    <Button size="sm" asChild>
+      <Link href={`/print/offboarding/${e.id}`} target="_blank">
+        <ClipboardList />
+        Offboarding checklist
+      </Link>
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -78,16 +92,20 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
             <div>
               <h2 className="text-[15px] font-semibold text-fg">
-                Offboarding: {[open.length && `${open.length} asset(s)`, e.licenseSeats.length && `${e.licenseSeats.length} license seat(s)`].filter(Boolean).join(" and ")} still with{" "}
+                Offboarding: {[open.length && `${open.length} asset(s)`, e.licenseSeats.length && `${e.licenseSeats.length} license seat(s)`, openLogins.length && `${openLogins.length} active login(s)`].filter(Boolean).join(", ")} still with{" "}
                 {e.name.split(" ")[0]}
               </h2>
               <p className="text-[13px] text-fg-secondary">
                 {e.status === "LEAVING" && e.exitDate
                   ? `Last day ${formatDate(e.exitDate)} (${Math.max(0, daysBetween(today(), e.exitDate))} days). `
                   : "Marked as exited. "}
-                Return assets to stock (or use Check in on the asset for damage notes) and revoke license seats.
+                Return assets, revoke license seats, and block each login in its system, then mark it closed here.
               </p>
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2 px-5">
+            {checklist}
+            {writable && openLogins.length > 1 && <CloseAccountsButton ids={openLogins.map((a) => a.id)} label={`Close all ${openLogins.length} logins`} />}
           </div>
           <ul className="mt-3 border-t border-warning/20">
             {open.map((a) => (
@@ -110,14 +128,37 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                 {writable && <RevokeSeatButton seatId={s.id} label={e.name} />}
               </li>
             ))}
+            {openLogins.map((a) => (
+              <li key={a.id} className="flex items-center gap-4 border-b border-warning/20 px-5 py-3 last:border-0">
+                <Link href={`/accounts/${a.id}`} className="min-w-0 flex-1 hover:underline">
+                  <span className="text-[12.5px] font-medium">{a.system.name}</span>
+                  <span className="ml-2 font-mono text-[12.5px] break-all text-fg-secondary">{a.username}</span>
+                  {a.personal && <span className="ml-2 text-[12px] text-fg-muted">(personal — remove access)</span>}
+                </Link>
+                <span className="hidden text-[12.5px] text-fg-muted sm:inline">{SYSTEM_CATEGORY[a.system.category]}</span>
+                {writable && <QuickDisableButton id={a.id} label={`${a.system.name} login`} />}
+              </li>
+            ))}
           </ul>
+        </Card>
+      )}
+
+      {offboarded && (
+        <Card className="border-success/30 bg-success-soft/60">
+          <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+            <CircleCheck className="size-5 shrink-0 text-success" aria-hidden />
+            <p className="flex-1 text-[13.5px] text-fg">
+              <span className="font-semibold">Offboarding complete.</span> No assets, license seats or active logins left with {e.name.split(" ")[0]}.
+            </p>
+            {checklist}
+          </div>
         </Card>
       )}
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Assets held" value={e.heldAssets.length} />
         <StatCard label="Value held" value={formatMoney(heldValue)} sub="Purchase cost" />
-        <StatCard label="Assets ever issued" value={new Set(e.assignments.map((a) => a.assetId)).size} />
+        <StatCard label="Active logins" value={openLogins.length} sub={`${e.accounts.length - openLogins.length} closed`} />
         <StatCard label="Tickets raised" value={e.tickets.length} />
       </div>
 
@@ -144,6 +185,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             <TabsList>
               <TabsTrigger value="current">Current assets ({e.heldAssets.length})</TabsTrigger>
               <TabsTrigger value="history">Asset history ({e.assignments.length})</TabsTrigger>
+              <TabsTrigger value="logins">Logins ({openLogins.length})</TabsTrigger>
               <TabsTrigger value="licenses">Licenses ({e.licenseSeats.length})</TabsTrigger>
               <TabsTrigger value="stock">Stock issued ({e.stockMovements.length})</TabsTrigger>
               <TabsTrigger value="tickets">Tickets ({e.tickets.length})</TabsTrigger>
@@ -179,6 +221,28 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                   },
                 ]}
               />
+            </TabsContent>
+            <TabsContent value="logins">
+              <div className="flex flex-col gap-3">
+                {writable && accountLookups && e.status !== "EXITED" && (
+                  <div className="flex justify-end">
+                    <AddAccountButton lookups={accountLookups} preset={{ employeeId: e.id }} variant="secondary" />
+                  </div>
+                )}
+                <SimpleTable
+                  rows={e.accounts}
+                  rowKey={(a) => a.id}
+                  empty="No logins recorded. Add their email, Google, software and VPN accounts so you know what to block when they leave."
+                  columns={[
+                    { header: "System", cell: (a) => <span className="font-medium">{a.system.name}</span> },
+                    { header: "Login ID", cell: (a) => <Link href={`/accounts/${a.id}`} className="font-mono text-[12.5px] break-all hover:underline">{a.username}</Link> },
+                    { header: "Access", cell: (a) => a.accessLevel ?? "—" },
+                    { header: "2FA", cell: (a) => <MfaLabel on={a.mfaEnabled} /> },
+                    { header: "Status", cell: (a) => <AccountStatusBadge status={a.status} /> },
+                    { header: "Since", cell: (a) => (a.status === "ACTIVE" ? formatDate(a.grantedAt) : `Closed ${formatDate(a.closedAt)}`) },
+                  ]}
+                />
+              </div>
             </TabsContent>
             <TabsContent value="licenses">
               <SimpleTable

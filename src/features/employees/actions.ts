@@ -51,6 +51,8 @@ export const archiveEmployee = createAction({
     if (held > 0) throw new ActionError(`${before.name} still holds ${held} asset(s). Check them in first.`);
     const seats = await tx.licenseSeat.count({ where: { employeeId: id, revokedAt: null, license: { deletedAt: null } } });
     if (seats > 0) throw new ActionError(`${before.name} still has ${seats} license seat(s). Revoke them first.`);
+    const logins = await tx.employeeAccount.count({ where: { employeeId: id, deletedAt: null, status: "ACTIVE" } });
+    if (logins > 0) throw new ActionError(`${before.name} still has ${logins} active login(s). Block them and mark them closed first.`);
     const after = await tx.employee.update({ where: { id }, data: { deletedAt: new Date() } });
     await audit({ action: "DELETE", entityType: "Employee", entityId: id, entityLabel: before.name, before, after });
     return { id };

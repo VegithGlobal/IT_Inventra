@@ -1,6 +1,7 @@
 // Display labels + badge tones for enums, shared across modules.
 import type { Tone } from "@/components/ui/badge";
 import type {
+  AccountStatus,
   AssetCondition,
   AssetStatus,
   BillingCycle,
@@ -10,6 +11,7 @@ import type {
   PaymentMode,
   SubscriptionCategory,
   SubscriptionStatus,
+  SystemCategory,
   TicketPriority,
   TicketSource,
   TicketStatus,
@@ -148,3 +150,25 @@ export function formatAge(from: Date | string, to: Date = new Date()) {
 }
 
 export const LICENSE_TYPE: Record<"PER_USER" | "PER_DEVICE" | "SITE", string> = { PER_USER: "Per user", PER_DEVICE: "Per device", SITE: "Site licence" };
+
+export const SYSTEM_CATEGORY: Record<SystemCategory, string> = {
+  EMAIL: "Email",
+  GOOGLE: "Google / Gmail",
+  MICROSOFT: "Microsoft 365",
+  SOFTWARE: "Software / SaaS",
+  CLOUD: "Cloud console",
+  DEV_TOOLS: "Developer tools",
+  VPN_NETWORK: "VPN / network",
+  FINANCE: "Finance / banking",
+  COMMUNICATION: "Chat / calls",
+  SOCIAL: "Social media",
+  OTHER: "Other",
+};
+
+/** Anything other than ACTIVE means access has been cut. */
+export const ACCOUNT_STATUS = opts<AccountStatus>({
+  ACTIVE: { label: "Active", tone: "success" },
+  DISABLED: { label: "Disabled", tone: "neutral" },
+  DELETED: { label: "Deleted", tone: "neutral" },
+  TRANSFERRED: { label: "Handed over", tone: "info" },
+});

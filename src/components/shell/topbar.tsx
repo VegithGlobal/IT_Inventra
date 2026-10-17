@@ -17,6 +17,8 @@ const LABELS: Record<string, string> = Object.fromEntries(
 );
 Object.assign(LABELS, {
   new: "New",
+  systems: "Systems",
+  offboarding: "Offboarding",
   edit: "Edit",
   calendar: "Calendar",
   departments: "Departments",
@@ -42,6 +44,7 @@ export const CREATE_ITEMS = [
   { label: "Expense", href: "/expenses?new=1" },
   { label: "Upload invoice", href: "/invoices?new=1" },
   { label: "Employee", href: "/employees?new=1" },
+  { label: "System (for logins)", href: "/accounts/systems?new=1" },
   { label: "Vendor", href: "/vendors?new=1" },
 ];
 

@@ -7,7 +7,7 @@ import { REPORTS } from "@/features/reports/definitions";
 export const metadata: Metadata = { title: "Reports" };
 
 export default function ReportsPage() {
-  const sections = ["Assets", "Finance", "Work"] as const;
+  const sections = ["Assets", "Finance", "Work", "Access"] as const;
   return (
     <div className="flex flex-col gap-8">
       <PageHeader title="Reports" description="Filter by date, group the way you need, and export to CSV, Excel or PDF." />

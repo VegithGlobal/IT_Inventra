@@ -60,6 +60,7 @@ export const EMAILABLE_TYPES = [
   "TICKET_DUE",
   "ASSET_RETURN_DUE",
   "MAINTENANCE_DUE",
+  "ACCOUNT_OFFBOARDING",
   "REMINDER",
 ] as const satisfies readonly NotificationType[];
 export type EmailableType = (typeof EMAILABLE_TYPES)[number];

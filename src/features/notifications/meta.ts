@@ -1,4 +1,4 @@
-import { AlarmClock, Bell, CalendarClock, CircleAlert, KeyRound, PackageMinus, ShieldCheck, Ticket, Undo2, Wrench, type LucideIcon } from "lucide-react";
+import { AlarmClock, Bell, CalendarClock, CircleAlert, KeyRound, PackageMinus, ShieldCheck, Ticket, Undo2, UserX, Wrench, type LucideIcon } from "lucide-react";
 import type { Tone } from "@/components/ui/badge";
 import type { NotificationType } from "@/generated/prisma/enums";
 
@@ -11,6 +11,7 @@ export const NOTIFICATION_META: Record<NotificationType, { label: string; icon: 
   TICKET_DUE: { label: "Ticket due", icon: Ticket, tone: "info" },
   ASSET_RETURN_DUE: { label: "Asset return", icon: Undo2, tone: "info" },
   MAINTENANCE_DUE: { label: "Maintenance", icon: Wrench, tone: "warning" },
+  ACCOUNT_OFFBOARDING: { label: "Account offboarding", icon: UserX, tone: "danger" },
   REMINDER: { label: "Reminder", icon: AlarmClock, tone: "neutral" },
   SYSTEM: { label: "System", icon: Bell, tone: "neutral" },
 };

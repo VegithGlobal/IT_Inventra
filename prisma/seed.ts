@@ -14,6 +14,7 @@ import type {
   BillingCycle,
   PaymentMode,
   SubscriptionCategory,
+  SystemCategory,
   TicketPriority,
   TicketSource,
   TicketStatus,
@@ -688,7 +689,71 @@ async function main() {
     ],
   });
 
-  console.log(`Seeded: ${employees.length} employees (${activeEmployees.length} active), ${assets.length} assets, ${createdSubs.length} subscriptions, ${ticketSeeds.length} tickets.`);
+  // Accounts & logins
+  const systemRows: { name: string; category: SystemCategory; loginUrl?: string; vendor?: string; steps?: string }[] = [
+    { name: "Microsoft 365 (email)", category: "MICROSOFT", vendor: "Microsoft", loginUrl: "https://admin.microsoft.com", steps: "Admin centre → Users → Block sign-in and reset password. Convert the mailbox to shared and give the manager access, then remove the licence." },
+    { name: "Slack", category: "COMMUNICATION", loginUrl: "https://northwind.slack.com/admin", steps: "Workspace admin → Members → Deactivate account." },
+    { name: "FortiClient VPN", category: "VPN_NETWORK", loginUrl: "https://10.10.0.1", steps: "FortiGate → User & Authentication → User definition → disable the user." },
+    { name: "GitHub", category: "DEV_TOOLS", loginUrl: "https://github.com/orgs/northwind/people", steps: "Org → People → Remove from organisation. Check for personal access tokens and deploy keys." },
+    { name: "AWS Console", category: "CLOUD", vendor: "Amazon", loginUrl: "https://console.aws.amazon.com/iam", steps: "IAM → Users → delete console password and access keys, then delete the user." },
+    { name: "Jira", category: "DEV_TOOLS", loginUrl: "https://northwind.atlassian.net", steps: "admin.atlassian.com → Directory → Users → Suspend access." },
+    { name: "Zoho CRM", category: "SOFTWARE", loginUrl: "https://crm.zoho.in", steps: "Setup → Users → Deactivate. Transfer their leads and deals to the sales manager first." },
+    { name: "Tally Prime", category: "FINANCE", steps: "Company → Security control → Users and passwords → remove the user." },
+    { name: "HDFC NetBanking (corporate)", category: "FINANCE", loginUrl: "https://netbanking.hdfcbank.com", steps: "Ask the bank's RM in writing to deactivate the user ID; confirm by email." },
+    { name: "Figma", category: "SOFTWARE", loginUrl: "https://www.figma.com/files/team", steps: "Admin → Members → Remove; transfer file ownership first." },
+    { name: "Google Ads / Analytics", category: "GOOGLE", loginUrl: "https://ads.google.com", steps: "Tools → Access and security → remove the user. Repeat in Analytics → Admin → Account access." },
+    { name: "LinkedIn company page", category: "SOCIAL", loginUrl: "https://www.linkedin.com/company/northwind/admin", steps: "Page admin → Settings → Manage admins → remove." },
+  ];
+  const systems = await Promise.all(
+    systemRows.map((s) => db.appSystem.create({ data: { name: s.name, category: s.category, loginUrl: s.loginUrl ?? null, vendorId: s.vendor ? vendor(s.vendor) : null, offboardingSteps: s.steps ?? null } })),
+  );
+  const sys = (prefix: string) => systems.find((s) => s.name.startsWith(prefix))!.id;
+  type AccSeed = { who: string; system: string; login?: string; access?: string; mfa?: boolean; personal?: boolean; password?: string; notes?: string; closed?: { status: "DISABLED" | "DELETED" | "TRANSFERRED"; note?: string } };
+  const accountSeeds: AccSeed[] = [];
+  const handle = (e: (typeof employees)[number]) => e.email!.split("@")[0];
+  for (const e of employees) {
+    const dep = people.find((p) => p[0] === e.name)![2];
+    const exited = e.status === "EXITED";
+    accountSeeds.push({ who: e.name, system: "Microsoft 365", login: e.email!, access: dep === "MGT" ? "Global admin" : "User", mfa: true, closed: exited ? { status: "DISABLED", note: "Mailbox converted to shared; Priya has access" } : undefined });
+    accountSeeds.push({ who: e.name, system: "Slack", login: e.email!, mfa: dep === "ENG", closed: exited ? { status: "DELETED" } : undefined });
+    if (dep === "ENG" || e.locationId === remote.id) accountSeeds.push({ who: e.name, system: "FortiClient", login: handle(e), mfa: true });
+    if (dep === "ENG" && e.name !== "Meera Nair") {
+      accountSeeds.push({ who: e.name, system: "GitHub", login: `${handle(e).replace(".", "-")}-nw`, access: e.name === "Priya Deshmukh" ? "Owner" : "Member", mfa: true });
+      accountSeeds.push({ who: e.name, system: "Jira", login: e.email!, closed: exited ? { status: "DISABLED" } : undefined });
+    }
+    if (["Vikram Singh", "Aarav Sharma", "Harsh Vardhan"].includes(e.name)) {
+      accountSeeds.push({ who: e.name, system: "AWS", login: handle(e), access: e.name === "Vikram Singh" ? "AdministratorAccess" : "Developer", mfa: true, closed: exited ? { status: "DELETED", note: "IAM user and access keys deleted" } : undefined });
+    }
+    if (dep === "SAL") accountSeeds.push({ who: e.name, system: "Zoho", login: e.email!, access: e.name === "Amit Patil" ? "Manager" : "Sales rep" });
+  }
+  accountSeeds.push(
+    { who: "Kavya Menon", system: "Tally", login: "kavya", access: "Owner", password: "Tally@Nw2026", notes: "Also knows the company data password" },
+    { who: "Suresh Pillai", system: "Tally", login: "suresh", access: "Data entry", password: "Suresh#4410" },
+    { who: "Siddharth Kulkarni", system: "Tally", login: "siddharth", access: "Read-only" },
+    { who: "Kavya Menon", system: "HDFC", login: "NWFIN01", access: "Approver", mfa: true, notes: "Password kept in the finance safe — not stored here" },
+    { who: "Suresh Pillai", system: "HDFC", login: "NWFIN02", access: "Maker", mfa: true },
+    { who: "Meera Nair", system: "Figma", login: "meera.nair@northwind.in", access: "Admin", mfa: true },
+    { who: "Sneha Joshi", system: "Figma", login: "sneha.joshi@northwind.in", access: "Editor" },
+    { who: "Pooja Mehta", system: "Google Ads", login: "pooja.mehta@northwind.in", access: "Admin", mfa: true },
+    { who: "Arjun Rao", system: "Google Ads", login: "arjunrao.content@gmail.com", access: "Standard", personal: true, notes: "Personal Gmail — remove from Ads and Analytics on exit" },
+    { who: "Rahul Verma", system: "Zoho", login: "rahulverma.biz@gmail.com", access: "Sales rep", personal: true, notes: "Uses personal Gmail for lead forms" },
+    { who: "Pooja Mehta", system: "LinkedIn", login: "Pooja Mehta (personal profile)", access: "Super admin", personal: true },
+    { who: "Siddharth Kulkarni", system: "Google Ads", login: "sid.kulkarni91@gmail.com", access: "Read-only", personal: true },
+    { who: "Siddharth Kulkarni", system: "FortiClient", login: "siddharth.kulkarni", password: "Vpn!Sid2026" },
+  );
+  for (const a of accountSeeds) {
+    const e = emp(a.who);
+    const granted = e.joiningDate ? new Date(e.joiningDate.getTime() + (1 + Math.floor(rand() * 20)) * DAY) : null;
+    await db.employeeAccount.create({
+      data: {
+        employeeId: e.id, systemId: sys(a.system), username: a.login ?? e.email!, accessLevel: a.access ?? null, mfaEnabled: !!a.mfa, personal: !!a.personal,
+        grantedAt: granted, passwordEnc: a.password ? encrypt(a.password) : null, notes: a.notes ?? null,
+        ...(a.closed ? { status: a.closed.status, closedAt: new Date(daysFromToday(-39).getTime() + 6 * 3_600_000), closedById: admin.id, closeNote: a.closed.note ?? null } : {}),
+      },
+    });
+  }
+
+  console.log(`Seeded: ${employees.length} employees (${activeEmployees.length} active), ${assets.length} assets, ${createdSubs.length} subscriptions, ${ticketSeeds.length} tickets, ${accountSeeds.length} logins.`);
   console.log(`Login: admin@company.com / ${password === "Admin@123" ? "Admin@123" : "(SEED_ADMIN_PASSWORD)"}`);
 }
 

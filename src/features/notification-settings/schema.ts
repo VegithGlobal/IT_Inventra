@@ -24,6 +24,7 @@ export const emailSettingsSchema = z.object({
   TICKET_DUE: z.boolean(),
   ASSET_RETURN_DUE: z.boolean(),
   MAINTENANCE_DUE: z.boolean(),
+  ACCOUNT_OFFBOARDING: z.boolean(),
   REMINDER: z.boolean(),
 });
 export type EmailSettingsInput = z.infer<typeof emailSettingsSchema>;

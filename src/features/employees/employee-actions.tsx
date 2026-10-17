@@ -38,7 +38,7 @@ export function EmployeeActions({
         icon={<Archive />}
         variant="ghost"
         title="Archive employee?"
-        description="They disappear from lists and pickers. Their assignment history is kept. Employees still holding assets can't be archived."
+        description="They disappear from lists and pickers. Their assignment history is kept. Employees still holding assets, license seats or active logins can't be archived."
         confirmLabel="Archive"
         successMessage="Employee archived"
         redirectTo="/employees"

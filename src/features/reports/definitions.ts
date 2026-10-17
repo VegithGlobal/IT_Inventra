@@ -4,7 +4,7 @@ import { dueDatesBetween } from "@/lib/billing";
 import { addDays, addMonths, daysBetween, HOUR_MS, istDateOf, monthKey, parseDateInput, startOfMonth, toDateInput, today } from "@/lib/dates";
 import { bookValue } from "@/lib/depreciation";
 import { formatMoney, toNumber } from "@/lib/format";
-import { ASSET_CONDITION, ASSET_STATUS, BILLING_CYCLE, LICENSE_TYPE, PAYMENT_MODE, TICKET_PRIORITY, TICKET_STATUS } from "@/lib/options";
+import { ACCOUNT_STATUS, ASSET_CONDITION, ASSET_STATUS, BILLING_CYCLE, EMPLOYEE_STATUS, LICENSE_TYPE, PAYMENT_MODE, SYSTEM_CATEGORY, TICKET_PRIORITY, TICKET_STATUS } from "@/lib/options";
 import { fyStart } from "@/features/expenses/queries";
 import type { ReportMeta, ReportParams, ReportResult, ReportRow } from "./types";
 
@@ -549,6 +549,140 @@ const DEFS: Definition[] = [
           { key: "resolved", label: "Resolved", type: "number", total: true },
           { key: "avgHours", label: "Avg. hours to resolve", type: "number" },
           { key: "minutes", label: "Minutes spent", type: "number", total: true },
+        ],
+        rows,
+      };
+    },
+  },
+
+  // ─── Access ────────────────────────────────────────────────────────────────
+  {
+    key: "access-review",
+    title: "Access review",
+    description: "Who can log in to what right now — for periodic reviews and audits.",
+    section: "Access",
+    params: { groups: [
+      { value: "list", label: "Every login" },
+      { value: "system", label: "By system" },
+      { value: "employee", label: "By employee" },
+    ] },
+    defaults: () => ({ group: "list" }),
+    async run(p) {
+      const accounts = await db.employeeAccount.findMany({
+        where: { deletedAt: null, status: "ACTIVE", employee: { deletedAt: null } },
+        orderBy: [{ system: { name: "asc" } }, { employee: { name: "asc" } }],
+        include: { system: { select: { id: true, name: true, category: true } }, employee: { select: { id: true, name: true, employeeCode: true, status: true, department: { select: { name: true } } } } },
+      });
+      const leaving = (s: string) => (s === "ACTIVE" ? null : EMPLOYEE_STATUS[s as keyof typeof EMPLOYEE_STATUS].label);
+      if (p.group === "list") {
+        const rows = accounts.map((a) => ({
+          system: a.system.name,
+          href: `/accounts/${a.id}`,
+          category: SYSTEM_CATEGORY[a.system.category],
+          login: a.username,
+          employee: a.employee.name,
+          code: a.employee.employeeCode,
+          department: a.employee.department?.name ?? null,
+          leaver: leaving(a.employee.status),
+          access: a.accessLevel,
+          mfa: a.mfaEnabled ? "On" : "Off",
+          personal: a.personal ? "Personal" : "Company",
+          granted: a.grantedAt,
+        }));
+        return {
+          summary: `${rows.length} active logins · ${new Set(accounts.map((a) => a.employeeId)).size} people · ${rows.filter((r) => r.leaver).length} belong to leavers · ${rows.filter((r) => r.mfa === "Off").length} without 2FA`,
+          columns: [
+            { key: "system", label: "System", type: "text", hrefKey: "href" },
+            { key: "category", label: "Category", type: "text", hidden: true },
+            { key: "login", label: "Login ID", type: "text" },
+            { key: "employee", label: "Employee", type: "text" },
+            { key: "code", label: "Employee ID", type: "text", hidden: true },
+            { key: "department", label: "Department", type: "text" },
+            { key: "leaver", label: "Leaving / exited", type: "text" },
+            { key: "access", label: "Access", type: "text" },
+            { key: "mfa", label: "2FA", type: "text" },
+            { key: "personal", label: "Account type", type: "text", hidden: true },
+            { key: "granted", label: "Given on", type: "date" },
+          ],
+          rows,
+        };
+      }
+      const byEmployee = p.group === "employee";
+      const groups = new Map<string, { name: string; href: string; count: number; noMfa: number; leavers: number; admins: number; items: Set<string> }>();
+      for (const a of accounts) {
+        const key = byEmployee ? a.employee.id : a.system.id;
+        const g = groups.get(key) ?? {
+          name: byEmployee ? `${a.employee.name} (${a.employee.employeeCode})` : a.system.name,
+          href: byEmployee ? `/employees/${a.employee.id}` : `/accounts/systems/${a.system.id}`,
+          count: 0, noMfa: 0, leavers: 0, admins: 0, items: new Set<string>(),
+        };
+        g.count++;
+        if (!a.mfaEnabled) g.noMfa++;
+        if (a.employee.status !== "ACTIVE") g.leavers++;
+        if (/admin|owner|super/i.test(a.accessLevel ?? "")) g.admins++;
+        g.items.add(byEmployee ? a.system.name : a.employee.name);
+        groups.set(key, g);
+      }
+      const rows = [...groups.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).map(({ items, ...g }) => ({ ...g, list: [...items].join(", ") }));
+      return {
+        summary: `${accounts.length} active logins across ${rows.length} ${byEmployee ? "people" : "systems"}`,
+        columns: [
+          { key: "name", label: byEmployee ? "Employee" : "System", type: "text", hrefKey: "href" },
+          { key: "count", label: "Active logins", type: "number", total: true },
+          { key: "admins", label: "Admin-level", type: "number", total: true },
+          { key: "noMfa", label: "Without 2FA", type: "number", total: true },
+          { key: "leavers", label: byEmployee ? "Still open after exit" : "Leavers' logins", type: "number", total: true },
+          { key: "list", label: byEmployee ? "Systems" : "People", type: "text" },
+        ],
+        rows,
+      };
+    },
+  },
+  {
+    key: "leaver-access",
+    title: "Leavers' access",
+    description: "Every login of people who left in a period — what was closed, when, by whom, and what is still open.",
+    section: "Access",
+    params: { dateRange: { label: "Last working day" } },
+    defaults: () => ({ from: iso(addDays(today(), -90)), to: iso(addDays(today(), 30)) }),
+    async run(p) {
+      const accounts = await db.employeeAccount.findMany({
+        where: { deletedAt: null, employee: { deletedAt: null, status: { not: "ACTIVE" }, exitDate: range(p) } },
+        orderBy: [{ employee: { exitDate: "asc" } }, { employee: { name: "asc" } }, { system: { name: "asc" } }],
+        include: { system: { select: { name: true } }, employee: { select: { id: true, name: true, exitDate: true } }, closedBy: { select: { name: true } } },
+      });
+      const t = today();
+      const rows = accounts.map((a) => {
+        const exit = a.employee.exitDate!;
+        const closedDay = a.closedAt ? istDateOf(a.closedAt) : null;
+        return {
+          employee: a.employee.name,
+          href: `/employees/${a.employee.id}`,
+          exit,
+          system: a.system.name,
+          login: a.username,
+          status: a.status === "ACTIVE" ? (exit < t ? "STILL OPEN" : "Open (not left yet)") : ACCOUNT_STATUS[a.status].label,
+          closed: a.closedAt,
+          by: a.closedBy?.name ?? null,
+          // Closed on or before the last day counts as 0 (on time).
+          lag: closedDay ? Math.max(0, daysBetween(exit, closedDay)) : exit < t ? daysBetween(exit, t) : null,
+          note: a.closeNote,
+        };
+      });
+      const open = rows.filter((r) => r.status === "STILL OPEN").length;
+      const people = new Set(accounts.map((a) => a.employee.id)).size;
+      return {
+        summary: `${people} leaver(s) · ${rows.length} logins · ${open ? `${open} still open after the last day` : "none left open"}`,
+        columns: [
+          { key: "employee", label: "Employee", type: "text", hrefKey: "href" },
+          { key: "exit", label: "Last day", type: "date" },
+          { key: "system", label: "System", type: "text" },
+          { key: "login", label: "Login ID", type: "text" },
+          { key: "status", label: "Status", type: "text" },
+          { key: "closed", label: "Closed at", type: "datetime" },
+          { key: "by", label: "Closed by", type: "text" },
+          { key: "lag", label: "Days after last day", type: "number" },
+          { key: "note", label: "Note", type: "text", hidden: true },
         ],
         rows,
       };

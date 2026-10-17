@@ -43,6 +43,7 @@ model User {
   ticketsAssigned     Ticket[]              @relation("Ticket_assigneeIdToUser")
   ticketsCreated      Ticket[]              @relation("Ticket_createdByIdToUser")
   ticketComments      TicketComment[]
+  accountsClosed      EmployeeAccount[]
 }
 
 // ─── Master data ─────────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ model Vendor {
   licenses       License[]
   maintenance    MaintenanceRecord[]
   subscriptions  Subscription[]
+  systems        AppSystem[]
 
   @@index([name])
 }
@@ -143,6 +145,7 @@ model Employee {
   licenseSeats   LicenseSeat[]
   stockMovements StockMovement[]
   tickets        Ticket[]
+  accounts       EmployeeAccount[]
 
   @@index([name])
   @@index([status])
@@ -488,6 +491,80 @@ model LicenseSeat {
   @@index([licenseId, revokedAt])
 }
 
+// ─── Accounts & logins ───────────────────────────────────────────────────────
+
+enum SystemCategory {
+  EMAIL
+  GOOGLE
+  MICROSOFT
+  SOFTWARE
+  CLOUD
+  DEV_TOOLS
+  VPN_NETWORK
+  FINANCE
+  COMMUNICATION
+  SOCIAL
+  OTHER
+}
+
+/// A service people sign in to (Gmail, Microsoft 365, Tally, AWS, VPN…).
+model AppSystem {
+  id               String         @id @default(cuid())
+  name             String
+  category         SystemCategory @default(SOFTWARE)
+  loginUrl         String?
+  vendorId         String?
+  /// How to block someone here, e.g. "Admin console → Users → Suspend".
+  offboardingSteps String?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+
+  vendor   Vendor?           @relation(fields: [vendorId], references: [id])
+  accounts EmployeeAccount[]
+
+  @@index([name])
+}
+
+enum AccountStatus {
+  ACTIVE
+  DISABLED
+  DELETED
+  TRANSFERRED
+}
+
+/// One login an employee holds on one system. Anything not ACTIVE is closed.
+model EmployeeAccount {
+  id          String        @id @default(cuid())
+  employeeId  String
+  systemId    String
+  /// Username, login email or user ID they sign in with.
+  username    String
+  accessLevel String?
+  mfaEnabled  Boolean       @default(false)
+  /// Employee's own account used for work (e.g. personal Gmail): remove its access, don't delete it.
+  personal    Boolean       @default(false)
+  grantedAt   DateTime?     @db.Date
+  /// AES-256-GCM ciphertext (see src/lib/crypto.ts). Never plain text.
+  passwordEnc String?
+  status      AccountStatus @default(ACTIVE)
+  closedAt    DateTime?
+  closedById  String?
+  closeNote   String?
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  employee Employee  @relation(fields: [employeeId], references: [id])
+  system   AppSystem @relation(fields: [systemId], references: [id])
+  closedBy User?     @relation(fields: [closedById], references: [id])
+
+  @@index([employeeId, status])
+  @@index([systemId, status])
+}
+
 // ─── Expenses & documents ────────────────────────────────────────────────────
 
 model ExpenseCategory {
@@ -765,6 +842,7 @@ enum NotificationType {
   TICKET_DUE
   ASSET_RETURN_DUE
   MAINTENANCE_DUE
+  ACCOUNT_OFFBOARDING
   REMINDER
   SYSTEM
 }
@@ -792,6 +870,8 @@ enum AuditAction {
   UPDATE
   DELETE
   RESTORE
+  /// A stored secret (password, key) was decrypted and shown.
+  REVEAL
 }
 
 model AuditLog {

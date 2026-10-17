@@ -7,6 +7,8 @@ import { Badge, PriorityDot } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LeaversCallout } from "@/features/accounts/accounts-view";
+import { listOpenLeavers } from "@/features/accounts/queries";
 import { Donut, Sparkline } from "@/features/dashboard/charts";
 import { getAssetBreakdown, getDashboardStats, getMyOpenTickets, getSpendSeries, getUpcomingRenewals, getWatchlists, greetingFor } from "@/features/dashboard/queries";
 import { SpendByMonthChart } from "@/features/expenses/charts";
@@ -29,7 +31,7 @@ const STATUS_SLICES = [
   ["DISPOSED", "var(--chart-7)"],
 ] as const;
 
-const VERB: Record<string, string> = { CREATE: "created", UPDATE: "updated", DELETE: "archived", RESTORE: "restored" };
+const VERB: Record<string, string> = { CREATE: "created", UPDATE: "updated", DELETE: "archived", RESTORE: "restored", REVEAL: "viewed the password of" };
 
 function Stat({ label, value, sub, trend, spark, href }: { label: string; value: ReactNode; sub?: ReactNode; trend?: ReactNode; spark?: number[]; href: string }) {
   return (
@@ -72,6 +74,13 @@ async function Greeting() {
       </div>
     </div>
   );
+}
+
+/** Only shows up when someone who is leaving or has left still has active logins. */
+async function LeaverAccess() {
+  await connection();
+  const leavers = await listOpenLeavers();
+  return <LeaversCallout leavers={leavers} />;
 }
 
 async function Stats() {
@@ -284,6 +293,9 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-6">
       <Suspense fallback={<div className="h-14" />}>
         <Greeting />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LeaverAccess />
       </Suspense>
       <Suspense fallback={box("h-36")}>
         <Stats />

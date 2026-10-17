@@ -33,6 +33,8 @@ export async function GET(request: Request) {
     subscriptionPayments: await db.subscriptionPayment.findMany(),
     licenses: await db.license.findMany(),
     licenseSeats: await db.licenseSeat.findMany(),
+    appSystems: await db.appSystem.findMany(),
+    employeeAccounts: await db.employeeAccount.findMany(), // passwordEnc stays AES-256 ciphertext
     expenseCategories: await db.expenseCategory.findMany(),
     expenses: await db.expense.findMany(),
     documents: await db.document.findMany(),
@@ -61,7 +63,7 @@ export async function GET(request: Request) {
         "csv/       — one spreadsheet per table.",
         withFiles ? "files/     — uploaded documents, by storage key." : "Uploaded files are not included (export again with files to add them).",
         "",
-        "Not included: login password hashes. Encrypted fields (credentials, license keys) stay",
+        "Not included: login password hashes. Encrypted fields (credentials, license keys, login passwords) stay",
         "encrypted and need the same ENCRYPTION_KEY to read.",
       ].join("\n"),
     ),

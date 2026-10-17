@@ -1,6 +1,6 @@
 # IT Ops Hub
 
-One place for a company's IT: hardware assets and who has them, subscriptions and renewals, expenses and invoices, tickets, repairs, consumable stock and software licenses — with reminders so nothing lapses.
+One place for a company's IT: hardware assets and who has them, subscriptions and renewals, expenses and invoices, tickets, repairs, consumable stock, software licenses and every login each employee has — with reminders so nothing lapses.
 
 Built for a single IT admin (plus optional IT staff and read-only viewers). Indian defaults: ₹ with Indian grouping (₹1,23,456.00), IST, GST on expenses, financial year April–March.
 
@@ -19,10 +19,11 @@ Built for a single IT admin (plus optional IT staff and read-only viewers). Indi
 | **Maintenance** | Repairs (asset → Under repair → back), costs as expenses, preventive schedules |
 | **Inventory** | Stock in / issue / adjust with full movement log and low-stock alerts |
 | **Licenses** | Per-user / per-device / site, seat assignment, encrypted keys, expiry |
-| **Reminders & notifications** | Renewals, overdue payments, warranty & license expiry, low stock, ticket due, asset returns, custom reminders; bell + email digest |
-| **Reports** | 10 reports with filters and CSV / Excel / PDF export |
+| **Accounts & logins** | Every login per employee (company email, Google/Gmail, Microsoft 365, software, cloud, VPN, banking…) with access level, 2FA and optional AES-256 encrypted password (every reveal is audited). When someone leaves: a block-list on their profile, one-click "Mark disabled" / close-all, a printable offboarding checklist with "how to block" steps per system, dashboard and notification alerts for leavers with open logins. CSV import |
+| **Reminders & notifications** | Renewals, overdue payments, warranty & license expiry, low stock, ticket due, asset returns, leavers with active logins, custom reminders; bell + email digest |
+| **Reports** | 12 reports (incl. access review and leavers' access) with filters and CSV / Excel / PDF export |
 | **Audit log** | Every change: who, what, before/after |
-| **Search** | Ctrl/⌘ K across assets, people, tickets, subscriptions, documents, vendors, licenses, stock |
+| **Search** | Ctrl/⌘ K across assets, people, tickets, subscriptions, documents, vendors, licenses, logins, systems, stock |
 | **Settings** | Company profile & logo, users & roles, categories, departments, locations, asset types, notifications, backup export |
 
 **Roles:** Admin (everything) · IT staff (day-to-day work, no settings) · Viewer (read-only).

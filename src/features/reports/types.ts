@@ -32,7 +32,7 @@ export type ReportMeta = {
   key: string;
   title: string;
   description: string;
-  section: "Assets" | "Finance" | "Work";
+  section: "Assets" | "Finance" | "Work" | "Access";
   params: ReportParamsSpec;
 };
 

@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   if (q.length < 2) return Response.json({ groups: [] satisfies SearchGroup[] });
   const has = { contains: q, mode: "insensitive" as const };
 
-  const [assets, employees, tickets, subscriptions, documents, vendors, licenses, items] = await Promise.all([
+  const [assets, employees, tickets, subscriptions, documents, vendors, licenses, items, accounts, systems] = await Promise.all([
     db.asset.findMany({
       where: { deletedAt: null, OR: [{ assetTag: has }, { name: has }, { serialNumber: has }, { model: has }, { currentHolder: { name: has } }] },
       take: TAKE,
@@ -49,6 +49,13 @@ export async function GET(request: Request) {
     db.vendor.findMany({ where: { deletedAt: null, OR: [{ name: has }, { gstin: has }, { contactPerson: has }] }, take: TAKE, orderBy: { name: "asc" }, select: { id: true, name: true, contactPerson: true } }),
     db.license.findMany({ where: { deletedAt: null, name: has }, take: TAKE, orderBy: { name: "asc" }, select: { id: true, name: true, totalSeats: true } }),
     db.inventoryItem.findMany({ where: { deletedAt: null, OR: [{ name: has }, { sku: has }] }, take: TAKE, orderBy: { name: "asc" }, select: { id: true, name: true, sku: true, quantity: true, unit: true } }),
+    db.employeeAccount.findMany({
+      where: { deletedAt: null, employee: { deletedAt: null }, username: has },
+      take: TAKE,
+      orderBy: { username: "asc" },
+      select: { id: true, username: true, status: true, employee: { select: { name: true } }, system: { select: { name: true } } },
+    }),
+    db.appSystem.findMany({ where: { deletedAt: null, name: has }, take: TAKE, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
 
   const groups: SearchGroup[] = [
@@ -59,6 +66,11 @@ export async function GET(request: Request) {
     { label: "Invoices & documents", hits: documents.map((d) => ({ id: d.id, title: d.title, subtitle: [d.invoiceNumber, d.vendor?.name].filter(Boolean).join(" · "), href: `/api/files/${d.id}` })) },
     { label: "Vendors", hits: vendors.map((v) => ({ id: v.id, title: v.name, subtitle: v.contactPerson ?? "", href: `/vendors/${v.id}` })) },
     { label: "Licenses", hits: licenses.map((l) => ({ id: l.id, title: l.name, subtitle: `${l.totalSeats} seat(s)`, href: `/licenses/${l.id}` })) },
+    {
+      label: "Logins",
+      hits: accounts.map((a) => ({ id: a.id, title: `${a.system.name} · ${a.username}`, subtitle: `${a.employee.name}${a.status === "ACTIVE" ? "" : ` · ${a.status.toLowerCase()}`}`, href: `/accounts/${a.id}` })),
+    },
+    { label: "Systems", hits: systems.map((s) => ({ id: s.id, title: s.name, subtitle: "System", href: `/accounts/systems/${s.id}` })) },
     { label: "Stock", hits: items.map((i) => ({ id: i.id, title: i.name, subtitle: `${i.sku} · ${i.quantity} ${i.unit}`, href: `/inventory/${i.id}` })) },
   ].filter((g) => g.hits.length > 0);
 

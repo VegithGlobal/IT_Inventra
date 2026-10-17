@@ -56,6 +56,11 @@ export async function getEmployee(id: string) {
       assignments: { include: { asset: { include: { type: true } } }, orderBy: { issuedAt: "desc" } },
       tickets: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 20, include: { category: true } },
       licenseSeats: { where: { revokedAt: null, license: { deletedAt: null } }, include: { license: { select: { id: true, name: true, type: true, expiryDate: true } } }, orderBy: { assignedAt: "desc" } },
+      accounts: {
+        where: { deletedAt: null },
+        orderBy: [{ status: "asc" }, { system: { name: "asc" } }],
+        include: { system: { select: { id: true, name: true, category: true, offboardingSteps: true } } },
+      },
       stockMovements: { where: { type: "STOCK_OUT" }, include: { item: { select: { id: true, name: true, unit: true } } }, orderBy: { occurredAt: "desc" }, take: 30 },
     },
   });

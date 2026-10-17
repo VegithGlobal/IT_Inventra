@@ -6,7 +6,7 @@ import { HOUR_MS, parseDateInput } from "@/lib/dates";
 export const AUDIT_LIMIT = 1000;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "RESTORE"];
+const ACTIONS: AuditAction[] = ["CREATE", "UPDATE", "DELETE", "RESTORE", "REVEAL"];
 
 export type AuditFilters = { from: string; to: string; entity: string; action: string; actor: string };
 

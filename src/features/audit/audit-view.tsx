@@ -20,6 +20,7 @@ const ACTION: Record<string, { label: string; tone: Tone }> = {
   UPDATE: { label: "Updated", tone: "info" },
   DELETE: { label: "Archived", tone: "danger" },
   RESTORE: { label: "Restored", tone: "brand" },
+  REVEAL: { label: "Viewed secret", tone: "warning" },
 };
 /** "AssetAssignment" → "Asset assignment" */
 const entityLabel = (t: string) => t.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase()).replace(/ ([A-Z])/g, (_, c: string) => ` ${c.toLowerCase()}`);
