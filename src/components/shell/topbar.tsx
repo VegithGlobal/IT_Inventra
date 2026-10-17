@@ -30,6 +30,8 @@ Object.assign(LABELS, {
 /** "+ New" menu. Links open the create flow on each module's page via ?new=1. */
 export const CREATE_ITEMS = [
   { label: "Log repair", href: "/maintenance?new=1" },
+  { label: "Stock item", href: "/inventory?new=1" },
+  { label: "License", href: "/licenses?new=1" },
   { label: "Asset", href: "/assets?new=1" },
   { label: "Assign asset", href: "/assignments?assign=1" },
   { label: "Subscription", href: "/subscriptions?new=1" },

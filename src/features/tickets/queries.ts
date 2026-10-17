@@ -70,6 +70,7 @@ export async function getTicket(id: string) {
       comments: { include: { author: { select: { name: true } } }, orderBy: { createdAt: "asc" } },
       documents: { where: { deletedAt: null }, orderBy: { createdAt: "desc" } },
       maintenance: { where: { deletedAt: null }, orderBy: { sentAt: "desc" } },
+      stockMovements: { include: { item: { select: { id: true, name: true, unit: true } } }, orderBy: { occurredAt: "desc" } },
     },
   });
   if (!ticket) return null;

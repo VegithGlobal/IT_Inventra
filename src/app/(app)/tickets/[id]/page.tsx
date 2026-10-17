@@ -7,7 +7,9 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge, PriorityDot } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageSkeleton } from "@/components/ui/page";
+import { UseStockButton } from "@/features/inventory/use-stock";
 import { SendToRepairButton } from "@/features/maintenance/dialogs";
+import { db } from "@/lib/db";
 import { getMaintenanceLookups } from "@/features/maintenance/queries";
 import { CommentBox, TicketActions, TimeLogger } from "@/features/tickets/ticket-detail";
 import { getTicket, getTicketLookups, ticketFormValues } from "@/features/tickets/queries";
@@ -26,7 +28,13 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   if (!data) notFound();
   const { ticket: t, related } = data;
   const writable = canWrite(user.role);
-  const [lookups, repairLookups] = writable ? await Promise.all([getTicketLookups(), getMaintenanceLookups()]) : [null, null];
+  const [lookups, repairLookups, stockItems] = writable
+    ? await Promise.all([
+        getTicketLookups(),
+        getMaintenanceLookups(),
+        db.inventoryItem.findMany({ where: { deletedAt: null, quantity: { gt: 0 } }, orderBy: { name: "asc" }, select: { id: true, name: true, unit: true, quantity: true } }),
+      ])
+    : [null, null, null];
   const done = t.status === "RESOLVED" || t.status === "CLOSED";
   const overdue = !done && t.dueDate && t.dueDate < new Date();
   const openRepair = t.maintenance.find((m) => m.status === "OPEN");
@@ -176,6 +184,27 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             <CardHeader title="Time spent" />
             <CardBody>{writable ? <TimeLogger id={t.id} minutes={t.timeSpentMinutes} /> : <p className="text-[14px]">{formatMinutes(t.timeSpentMinutes)}</p>}</CardBody>
           </Card>
+          {(t.stockMovements.length > 0 || stockItems) && (
+            <Card>
+              <CardHeader title="Parts used" action={stockItems && !done && <UseStockButton items={stockItems} ticketId={t.id} requesterId={t.requesterId} />} />
+              {t.stockMovements.length === 0 ? (
+                <p className="px-5 pb-5 text-[13px] text-fg-muted">No stock used yet.</p>
+              ) : (
+                <ul className="pb-2">
+                  {t.stockMovements.map((m) => (
+                    <li key={m.id} className="flex items-center gap-2 px-5 py-2 text-[13px]">
+                      <Link href={`/inventory/${m.item.id}`} className="min-w-0 flex-1 truncate hover:underline">
+                        {m.item.name}
+                      </Link>
+                      <span className="text-fg-secondary tabular">
+                        {-m.quantityChange} {m.item.unit}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
           {t.maintenance.length > 0 && (
             <Card>
               <CardHeader title="Repairs" action={<Link href="/maintenance" className="text-[13px] font-medium text-fg-secondary hover:text-fg">Maintenance</Link>} />

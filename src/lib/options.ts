@@ -146,3 +146,5 @@ export function formatAge(from: Date | string, to: Date = new Date()) {
   if (hours < 48) return `${Math.round(hours)}h`;
   return `${Math.round(hours / 24)}d`;
 }
+
+export const LICENSE_TYPE: Record<"PER_USER" | "PER_DEVICE" | "SITE", string> = { PER_USER: "Per user", PER_DEVICE: "Per device", SITE: "Site licence" };

@@ -49,6 +49,8 @@ export const archiveEmployee = createAction({
     if (!before) throw new ActionError("Employee not found.");
     const held = await tx.asset.count({ where: { currentHolderId: id, deletedAt: null } });
     if (held > 0) throw new ActionError(`${before.name} still holds ${held} asset(s). Check them in first.`);
+    const seats = await tx.licenseSeat.count({ where: { employeeId: id, revokedAt: null, license: { deletedAt: null } } });
+    if (seats > 0) throw new ActionError(`${before.name} still has ${seats} license seat(s). Revoke them first.`);
     const after = await tx.employee.update({ where: { id }, data: { deletedAt: new Date() } });
     await audit({ action: "DELETE", entityType: "Employee", entityId: id, entityLabel: before.name, before, after });
     return { id };

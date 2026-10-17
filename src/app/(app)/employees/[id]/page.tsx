@@ -11,6 +11,7 @@ import { PageSkeleton, StatCard } from "@/components/ui/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getAssignOptions } from "@/features/assignments/queries";
 import { EmployeeActions, QuickReturnButton } from "@/features/employees/employee-actions";
+import { RevokeSeatButton } from "@/features/licenses/license-ui";
 import { getEmployee, getLookups } from "@/features/employees/queries";
 import { daysBetween, toDateInput, today } from "@/lib/dates";
 import { formatDate, formatMoney, toNumber } from "@/lib/format";
@@ -28,7 +29,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
 
   const open = e.assignments.filter((a) => !a.returnedAt);
   const heldValue = e.heldAssets.reduce((s, a) => s + toNumber(a.purchaseCost), 0);
-  const offboarding = e.status !== "ACTIVE" && open.length > 0;
+  const offboarding = e.status !== "ACTIVE" && (open.length > 0 || e.licenseSeats.length > 0);
 
   return (
     <div className="flex flex-col gap-6">
@@ -76,12 +77,15 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
           <div className="flex items-start gap-3 px-5 pt-5">
             <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
             <div>
-              <h2 className="text-[15px] font-semibold text-fg">Offboarding: {open.length} asset(s) still with {e.name.split(" ")[0]}</h2>
+              <h2 className="text-[15px] font-semibold text-fg">
+                Offboarding: {[open.length && `${open.length} asset(s)`, e.licenseSeats.length && `${e.licenseSeats.length} license seat(s)`].filter(Boolean).join(" and ")} still with{" "}
+                {e.name.split(" ")[0]}
+              </h2>
               <p className="text-[13px] text-fg-secondary">
                 {e.status === "LEAVING" && e.exitDate
                   ? `Last day ${formatDate(e.exitDate)} (${Math.max(0, daysBetween(today(), e.exitDate))} days). `
                   : "Marked as exited. "}
-                Return each one to stock, or use Check in on the asset for damage notes.
+                Return assets to stock (or use Check in on the asset for damage notes) and revoke license seats.
               </p>
             </div>
           </div>
@@ -94,6 +98,16 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                 </Link>
                 <span className="hidden text-[12.5px] text-fg-muted sm:inline">Since {formatDate(a.issuedAt)}</span>
                 {writable && <QuickReturnButton assignmentId={a.id} label={a.asset.assetTag} />}
+              </li>
+            ))}
+            {e.licenseSeats.map((s) => (
+              <li key={s.id} className="flex items-center gap-4 border-b border-warning/20 px-5 py-3 last:border-0">
+                <Link href={`/licenses/${s.license.id}`} className="min-w-0 flex-1 hover:underline">
+                  <span className="text-[12.5px] font-medium">License seat</span>
+                  <span className="ml-2 text-[13.5px] text-fg-secondary">{s.license.name}</span>
+                </Link>
+                <span className="hidden text-[12.5px] text-fg-muted sm:inline">Since {formatDate(s.assignedAt)}</span>
+                {writable && <RevokeSeatButton seatId={s.id} label={e.name} />}
               </li>
             ))}
           </ul>
@@ -130,6 +144,8 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             <TabsList>
               <TabsTrigger value="current">Current assets ({e.heldAssets.length})</TabsTrigger>
               <TabsTrigger value="history">Asset history ({e.assignments.length})</TabsTrigger>
+              <TabsTrigger value="licenses">Licenses ({e.licenseSeats.length})</TabsTrigger>
+              <TabsTrigger value="stock">Stock issued ({e.stockMovements.length})</TabsTrigger>
               <TabsTrigger value="tickets">Tickets ({e.tickets.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="current">
@@ -161,6 +177,32 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                     header: "Asset now",
                     cell: (a) => <Badge tone={ASSET_STATUS[a.asset.status].tone}>{ASSET_STATUS[a.asset.status].label}</Badge>,
                   },
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="licenses">
+              <SimpleTable
+                rows={e.licenseSeats}
+                rowKey={(s) => s.id}
+                empty="No license seats."
+                columns={[
+                  { header: "License", cell: (s) => <Link href={`/licenses/${s.license.id}`} className="font-medium hover:underline">{s.license.name}</Link> },
+                  { header: "Since", cell: (s) => formatDate(s.assignedAt) },
+                  { header: "Expires", cell: (s) => (s.license.expiryDate ? formatDate(s.license.expiryDate) : "Perpetual") },
+                  ...(writable ? [{ header: "", className: "w-24", cell: (s: (typeof e.licenseSeats)[number]) => <RevokeSeatButton seatId={s.id} label={e.name} /> }] : []),
+                ]}
+              />
+            </TabsContent>
+            <TabsContent value="stock">
+              <SimpleTable
+                rows={e.stockMovements}
+                rowKey={(m) => m.id}
+                empty="No consumables issued."
+                columns={[
+                  { header: "Date", cell: (m) => formatDate(m.occurredAt) },
+                  { header: "Item", cell: (m) => <Link href={`/inventory/${m.item.id}`} className="hover:underline">{m.item.name}</Link> },
+                  { header: "Qty", align: "right", cell: (m) => `${-m.quantityChange} ${m.item.unit}` },
+                  { header: "Note", cell: (m) => <span className="text-fg-secondary">{m.notes ?? "—"}</span> },
                 ]}
               />
             </TabsContent>

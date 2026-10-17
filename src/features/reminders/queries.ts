@@ -73,7 +73,7 @@ export async function getUpcoming(days = 30): Promise<UpcomingItem[]> {
       overdue: x.nextDueDate < today,
     })),
     ...assets.map((x) => ({ key: `w${x.id}`, date: x.warrantyEnd!, kind: "Warranty", title: `${x.assetTag} warranty ends`, detail: x.name, href: `/assets/${x.id}`, overdue: false })),
-    ...licenses.map((x) => ({ key: `l${x.id}`, date: x.expiryDate!, kind: "License", title: `${x.name} expires`, detail: `${x.totalSeats} seat(s)`, href: "/licenses", overdue: x.expiryDate! < today })),
+    ...licenses.map((x) => ({ key: `l${x.id}`, date: x.expiryDate!, kind: "License", title: `${x.name} expires`, detail: `${x.totalSeats} seat(s)`, href: `/licenses/${x.id}`, overdue: x.expiryDate! < today })),
     ...returns.map((x) => ({
       key: `r${x.id}`,
       date: x.expectedReturnAt!,

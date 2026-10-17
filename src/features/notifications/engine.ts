@@ -80,11 +80,11 @@ async function licenseEvents(today: Date, s: ReminderSettings): Promise<Reminder
     const days = daysBetween(today, l.expiryDate!);
     const body = `${plural(l.totalSeats, "seat")} · expires ${formatDate(l.expiryDate)}`;
     if (days < 0) {
-      out.push({ type: "LICENSE_EXPIRY", key: `license-expired:${l.id}:${iso(l.expiryDate!)}`, title: `${l.name} license has expired`, body, href: "/licenses" });
+      out.push({ type: "LICENSE_EXPIRY", key: `license-expired:${l.id}:${iso(l.expiryDate!)}`, title: `${l.name} license has expired`, body, href: `/licenses/${l.id}` });
       continue;
     }
     const t = crossedThreshold(days, offsets);
-    if (t !== null) out.push({ type: "LICENSE_EXPIRY", key: `license:${l.id}:${iso(l.expiryDate!)}:${t}`, title: `${l.name} license expires ${inDays(days)}`, body, href: "/licenses" });
+    if (t !== null) out.push({ type: "LICENSE_EXPIRY", key: `license:${l.id}:${iso(l.expiryDate!)}:${t}`, title: `${l.name} license expires ${inDays(days)}`, body, href: `/licenses/${l.id}` });
   }
   return out;
 }
@@ -99,7 +99,7 @@ async function lowStockEvents(): Promise<ReminderEvent[]> {
       key: `low-stock:${i.id}:${i.quantity}`,
       title: i.quantity === 0 ? `${i.name} is out of stock` : `${i.name} is low on stock`,
       body: `${i.quantity} ${i.unit} left · reorder point ${i.minQuantity}`,
-      href: "/inventory",
+      href: `/inventory/${i.id}`,
     }));
 }
 

@@ -4,7 +4,7 @@
 import "dotenv/config";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createCipheriv, randomBytes, randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Prisma } from "../src/generated/prisma/client";
@@ -415,16 +415,11 @@ async function main() {
 
   // Other expenses: repairs, consumables, services, misc across the last 12 months
   const misc: [string, string, number, string | null, PaymentMode][] = [
-    ["Consumables", "HP 26A toner cartridges × 3", 17850, "Sai Stationery", "UPI"],
     ["Consumables", "Cat6 patch cables (50) + RJ45 connectors", 4600, "Sai Stationery", "UPI"],
-    ["Consumables", "Logitech M90 mice × 10", 3990, "Croma", "CARD"],
-    ["Consumables", "USB-C chargers 65W × 4", 7960, "Croma", "CARD"],
     ["Consumables", "Canon 337 toner × 2", 7200, "Sai Stationery", "CASH"],
     ["Services", "Structured cabling · Floor 4 expansion (12 points)", 28500, null, "BANK_TRANSFER"],
     ["Services", "Data recovery from failed HDD", 12000, "TechCare", "UPI"],
     ["Services", "CCTV NVR configuration visit", 3500, null, "UPI"],
-    ["Software Licenses", "Adobe Acrobat Pro (2 users, annual)", 31000, null, "CARD"],
-    ["Software Licenses", "Figma Professional (2 editors, annual)", 29800, null, "CARD"],
     ["Miscellaneous", "Courier · laptop to Bengaluru office", 850, null, "UPI"],
     ["Miscellaneous", "Cable management trays", 2400, "Sai Stationery", "CASH"],
   ];
@@ -580,25 +575,102 @@ async function main() {
     if (ticketId) await db.ticketComment.create({ data: { ticketId, authorId: admin.id, kind: "SYSTEM", body: `${r.tag} sent for repair to TechCare Service Centre`, createdAt: daysFromToday(r.sent) } });
   }
 
-  // Inventory & licenses (UI in Phase 7)
-  const items: [string, string, string, number, number, number][] = [
-    ["Logitech M90 USB Mouse", "Mouse", "ACC-MOU-M90", 4, 5, 399],
-    ["Logitech K120 Keyboard", "Keyboard", "ACC-KBD-K120", 6, 3, 549],
-    ["Cat6 Patch Cable 2m", "Cable", "CBL-CAT6-2M", 38, 20, 85],
-    ["HP 26A Toner", "Toner", "TNR-HP-26A", 1, 2, 5950],
-    ["USB-C 65W Charger", "Charger", "CHG-USBC-65", 3, 2, 1990],
-    ["8 GB DDR4 SODIMM", "RAM", "RAM-DDR4-8G", 2, 2, 1650],
-    ["HDMI to USB-C Adapter", "Adapter", "ADP-HDMI-USBC", 7, 3, 899],
+  // Inventory: opening stock, purchases (each with its Consumables expense) and issues to staff.
+  const consumablesCat = cat("Consumables");
+  type ItemSeed = { name: string; category: string; sku: string; unit?: string; final: number; min: number; cost: number; vendor: string;
+    buys?: { daysAgo: number; qty: number; invoice: string; mode: PaymentMode }[]; issues: { daysAgo: number; qty: number; to: string; ticket?: string; note?: string }[] };
+  const itemSeeds: ItemSeed[] = [
+    { name: "Logitech M90 USB Mouse", category: "Mouse", sku: "ACC-MOU-M90", final: 4, min: 5, cost: 399, vendor: "Croma",
+      buys: [{ daysAgo: 95, qty: 10, invoice: "CRM/B2B/88213", mode: "CARD" }],
+      issues: [{ daysAgo: 80, qty: 1, to: "Rohan Kulkarni" }, { daysAgo: 61, qty: 2, to: "Amit Patil", note: "Sales team spares" }, { daysAgo: 30, qty: 1, to: "Ananya Iyer" }, { daysAgo: 12, qty: 1, to: "Neha Gupta" }, { daysAgo: 3, qty: 1, to: "Manoj Yadav", note: "Scroll wheel broken" }] },
+    { name: "Logitech K120 Keyboard", category: "Keyboard", sku: "ACC-KBD-K120", final: 6, min: 3, cost: 549, vendor: "Croma", issues: [{ daysAgo: 70, qty: 1, to: "Suresh Pillai" }, { daysAgo: 22, qty: 1, to: "Kavya Menon" }] },
+    { name: "Cat6 Patch Cable 2m", category: "Cable", sku: "CBL-CAT6-2M", final: 38, min: 20, cost: 85, vendor: "Sai Stationery",
+      issues: [{ daysAgo: 88, qty: 6, to: "Siddharth Kulkarni", note: "Floor 4 desk setup" }, { daysAgo: 40, qty: 4, to: "Ishita Banerjee" }, { daysAgo: 9, qty: 2, to: "Pooja Mehta", ticket: "WiFi drops in Conference Room B" }] },
+    { name: "HP 26A Toner", category: "Toner", sku: "TNR-HP-26A", final: 1, min: 2, cost: 5950, vendor: "Sai Stationery",
+      buys: [{ daysAgo: 75, qty: 3, invoice: "SSC/2026/0412", mode: "UPI" }],
+      issues: [{ daysAgo: 70, qty: 1, to: "Siddharth Kulkarni", note: "Floor 4 LaserJet" }, { daysAgo: 35, qty: 1, to: "Siddharth Kulkarni", note: "Floor 4 LaserJet" }, { daysAgo: 6, qty: 1, to: "Rohan Kulkarni", ticket: "Printer on Floor 3 jamming" }] },
+    { name: "USB-C 65W Charger", category: "Charger", sku: "CHG-USBC-65", final: 3, min: 2, cost: 1990, vendor: "Croma",
+      buys: [{ daysAgo: 50, qty: 4, invoice: "CRM/B2B/90117", mode: "CARD" }],
+      issues: [{ daysAgo: 1, qty: 1, to: "Aarav Sharma", ticket: "Laptop not charging", note: "Loaner while Dell replaces the DC jack" }] },
+    { name: "8 GB DDR4 SODIMM", category: "RAM", sku: "RAM-DDR4-8G", final: 2, min: 2, cost: 1650, vendor: "Ingram", issues: [{ daysAgo: 55, qty: 2, to: "Neha Gupta", note: "ProBook upgrade to 16 GB" }] },
+    { name: "HDMI to USB-C Adapter", category: "Adapter", sku: "ADP-HDMI-USBC", final: 7, min: 3, cost: 899, vendor: "Croma", issues: [{ daysAgo: 25, qty: 1, to: "Meera Nair" }] },
   ];
-  for (const [name, category, sku, quantity, minQuantity, unitCost] of items) {
-    await db.inventoryItem.create({ data: { name, category, sku, quantity, minQuantity, unitCost: money(unitCost), locationId: puneF4.id, vendorId: vendor("Sai Stationery") } });
+  for (const it of itemSeeds) {
+    const item = await db.inventoryItem.create({
+      data: { name: it.name, category: it.category, sku: it.sku, unit: it.unit ?? "pcs", quantity: it.final, minQuantity: it.min, unitCost: money(it.cost), locationId: puneF4.id, vendorId: vendor(it.vendor) },
+    });
+    const bought = (it.buys ?? []).reduce((s, b) => s + b.qty, 0);
+    const issued = it.issues.reduce((s, i) => s + i.qty, 0);
+    const events = [
+      ...(it.buys ?? []).map((b) => ({ kind: "in" as const, daysAgo: b.daysAgo, qty: b.qty, b })),
+      ...it.issues.map((i) => ({ kind: "out" as const, daysAgo: i.daysAgo, qty: i.qty, i })),
+    ].sort((a, b) => b.daysAgo - a.daysAgo);
+    let running = it.final + issued - bought;
+    await db.stockMovement.create({ data: { itemId: item.id, type: "ADJUSTMENT", quantityChange: running, quantityAfter: running, notes: "Opening stock", occurredAt: daysFromToday(-150), createdById: admin.id } });
+    for (const e of events) {
+      const when = new Date(daysFromToday(-e.daysAgo).getTime() + 6 * 3_600_000);
+      if (e.kind === "in") {
+        running += e.qty;
+        await db.stockMovement.create({ data: { itemId: item.id, type: "STOCK_IN", quantityChange: e.qty, quantityAfter: running, unitCost: money(it.cost), invoiceNumber: e.b.invoice, occurredAt: when, createdById: admin.id } });
+        await db.expense.create({
+          data: { date: daysFromToday(-e.daysAgo), categoryId: consumablesCat, description: `Stock in · ${e.qty} × ${it.name}`, ...gstSplit(e.qty * it.cost), vendorId: vendor(it.vendor),
+            paymentMode: e.b.mode, transactionRef: e.b.invoice, paidBy: "Admin", source: "STOCK_IN", inventoryItemId: item.id },
+        });
+      } else {
+        running -= e.qty;
+        const ticketId = e.i.ticket ? tickets.find((t) => t.title === e.i.ticket)?.id ?? null : null;
+        await db.stockMovement.create({
+          data: { itemId: item.id, type: "STOCK_OUT", quantityChange: -e.qty, quantityAfter: running, unitCost: money(it.cost), employeeId: emp(e.i.to).id, ticketId, notes: e.i.note ?? null, occurredAt: when, createdById: admin.id },
+        });
+        if (ticketId) await db.ticketComment.create({ data: { ticketId, authorId: admin.id, kind: "SYSTEM", body: `Used ${e.qty} × ${it.name} from stock (given to ${e.i.to})`, createdAt: when } });
+      }
+    }
   }
-  await db.license.create({
-    data: { name: "Adobe Acrobat Pro", type: "PER_USER", totalSeats: 2, purchaseDate: daysFromToday(-200), expiryDate: daysFromToday(165), cost: money(31000) },
-  });
-  await db.license.create({
-    data: { name: "Figma Professional", type: "PER_USER", totalSeats: 2, purchaseDate: daysFromToday(-330), expiryDate: daysFromToday(35), cost: money(29800) },
-  });
+
+  // Licenses (keys encrypted the same way as src/lib/crypto.ts: AES-256-GCM, iv.tag.ciphertext in base64)
+  const encKey = process.env.ENCRYPTION_KEY && process.env.ENCRYPTION_KEY.length === 64 ? Buffer.from(process.env.ENCRYPTION_KEY, "hex") : null;
+  const encrypt = (plain: string) => {
+    if (!encKey) return null;
+    const iv = randomBytes(12);
+    const c = createCipheriv("aes-256-gcm", encKey, iv);
+    const data = Buffer.concat([c.update(plain, "utf8"), c.final()]);
+    return [iv, c.getAuthTag(), data].map((b) => b.toString("base64")).join(".");
+  };
+  const subId = (prefix: string) => createdSubs.find((x) => x.name.startsWith(prefix))!.id;
+  const licenseCat = cat("Software Licenses");
+  type LicSeed = { name: string; type: "PER_USER" | "PER_DEVICE" | "SITE"; seats: number; vendor?: string; sub?: string; bought: number; expires: number | null; cost?: number; key?: string; holders?: string[]; devices?: string[]; past?: string[] };
+  const activeStaff = employees.filter((e) => e.status !== "EXITED").map((e) => e.name);
+  const licenseSeeds: LicSeed[] = [
+    { name: "Microsoft 365 Business Standard", type: "PER_USER", seats: 25, vendor: "Microsoft", sub: "Microsoft 365", bought: -365, expires: null, holders: activeStaff.slice(0, 22), past: ["Harsh Vardhan"] },
+    { name: "Quick Heal Total Security", type: "PER_DEVICE", seats: 25, vendor: "Quick Heal", sub: "Quick Heal", bought: -225, expires: 140, key: "QHTS-7Q2M-K9XD-44PL-ENT25",
+      devices: assets.filter((a) => (a.tag.startsWith("LAP") || a.tag.startsWith("DSK")) && a.tag !== "LAP-0012").map((a) => a.tag) },
+    { name: "Adobe Acrobat Pro", type: "PER_USER", seats: 2, bought: -200, expires: 165, cost: 31000, key: "1118-1932-7766-4421-0938-5512", holders: ["Kavya Menon", "Suresh Pillai"] },
+    { name: "Figma Professional", type: "PER_USER", seats: 2, bought: -330, expires: 35, cost: 29800, holders: ["Meera Nair", "Sneha Joshi"] },
+    { name: "Windows Server 2022 Standard", type: "PER_DEVICE", seats: 1, vendor: "Dell", bought: -820, expires: null, cost: 0, key: "VDYBN-27WPP-V4HQT-9VMD4-VMK7H", devices: ["SRV-0001"] },
+  ];
+  for (const l of licenseSeeds) {
+    const lic = await db.license.create({
+      data: {
+        name: l.name, type: l.type, totalSeats: l.seats, vendorId: l.vendor ? vendor(l.vendor) : null, subscriptionId: l.sub ? subId(l.sub) : null,
+        purchaseDate: daysFromToday(l.bought), expiryDate: l.expires === null ? null : daysFromToday(l.expires), cost: l.cost ? money(l.cost) : null,
+        licenseKeyEnc: l.key ? encrypt(l.key) : null,
+      },
+    });
+    if (l.cost) {
+      await db.expense.create({
+        data: { date: daysFromToday(l.bought), categoryId: licenseCat, description: `License · ${l.name} (${l.seats} seat${l.seats === 1 ? "" : "s"})`, ...gstSplit(l.cost), paymentMode: "CARD", paidBy: "Admin", source: "LICENSE", licenseId: lic.id },
+      });
+    }
+    for (const [i, name] of (l.holders ?? []).entries()) {
+      await db.licenseSeat.create({ data: { licenseId: lic.id, employeeId: emp(name).id, assignedAt: daysFromToday(l.bought + Math.min(i * 7, 300)) } });
+    }
+    for (const tag of l.devices ?? []) {
+      await db.licenseSeat.create({ data: { licenseId: lic.id, assetId: assets.find((a) => a.tag === tag)!.id, assignedAt: daysFromToday(l.bought + 2) } });
+    }
+    for (const name of l.past ?? []) {
+      await db.licenseSeat.create({ data: { licenseId: lic.id, employeeId: emp(name).id, assignedAt: daysFromToday(l.bought), revokedAt: daysFromToday(-40), notes: "Revoked at exit" } });
+    }
+  }
 
   // Custom reminders (times are IST: 09:30 IST = 04:00 UTC)
   const at = (days: number, utcHour: number) => new Date(daysFromToday(days).getTime() + utcHour * 3_600_000);
