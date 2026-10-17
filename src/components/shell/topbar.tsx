@@ -9,7 +9,7 @@ import { Fragment, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { openQuickTicket } from "@/features/tickets/quick-add";
-import { BUILT_PHASE, NAV } from "./nav";
+import { NAV } from "./nav";
 import { Logo, NavList } from "./sidebar";
 
 const LABELS: Record<string, string> = Object.fromEntries(
@@ -117,7 +117,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
   const itemCls =
     "flex min-h-9 cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-[13.5px] text-fg data-[selected=true]:bg-subtle [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-fg-muted";
   const term = q.trim().toLowerCase();
-  const pages = NAV.flatMap((g) => g.items).filter((i) => i.phase <= BUILT_PHASE && (!term || i.label.toLowerCase().includes(term)));
+  const pages = NAV.flatMap((g) => g.items).filter((i) => !term || i.label.toLowerCase().includes(term));
   const creates = [{ label: "Ticket", href: "" }, ...CREATE_ITEMS].filter((c) => !term || `new ${c.label}`.toLowerCase().includes(term));
   return (
     <D.Root
@@ -205,6 +205,32 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
   );
 }
 
+/** "+ New" menu: a labelled button in the top bar, or a round FAB on phones. */
+function CreateMenu({ fab }: { fab?: boolean }) {
+  return (
+    <Menu>
+      <MenuTrigger asChild>
+        <Button variant="primary" className={fab ? "size-12 rounded-full p-0 shadow-[var(--shadow-overlay)]" : undefined} aria-label="Create new">
+          <Plus />
+          {!fab && "New"}
+        </Button>
+      </MenuTrigger>
+      <MenuContent side={fab ? "top" : "bottom"}>
+        <MenuItem onSelect={() => openQuickTicket()}>
+          Ticket
+          <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
+        </MenuItem>
+        <MenuSeparator />
+        {CREATE_ITEMS.map((c) => (
+          <MenuItem key={c.href} asChild>
+            <Link href={c.href}>{c.label}</Link>
+          </MenuItem>
+        ))}
+      </MenuContent>
+    </Menu>
+  );
+}
+
 export function Topbar({ userCard, bell, brand }: { userCard: ReactNode; bell: ReactNode; brand: ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -221,6 +247,7 @@ export function Topbar({ userCard, bell, brand }: { userCard: ReactNode; bell: R
   }, []);
 
   return (
+    <>
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur-sm md:px-8">
       <D.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
         <D.Trigger asChild>
@@ -265,28 +292,17 @@ export function Topbar({ userCard, bell, brand }: { userCard: ReactNode; bell: R
 
       {bell}
 
-      <Menu>
-        <MenuTrigger asChild>
-          <Button variant="primary" className="max-sm:fixed max-sm:right-4 max-sm:bottom-4 max-sm:z-40 max-sm:size-12 max-sm:rounded-full max-sm:p-0 max-sm:shadow-[var(--shadow-overlay)]" aria-label="Create new">
-            <Plus />
-            <span className="max-sm:hidden">New</span>
-          </Button>
-        </MenuTrigger>
-        <MenuContent>
-          <MenuItem onSelect={() => openQuickTicket()}>
-            Ticket
-            <kbd className="ml-auto rounded border border-line px-1.5 text-[11px] text-fg-muted">N</kbd>
-          </MenuItem>
-          <MenuSeparator />
-          {CREATE_ITEMS.map((c) => (
-            <MenuItem key={c.href} asChild>
-              <Link href={c.href}>{c.label}</Link>
-            </MenuItem>
-          ))}
-        </MenuContent>
-      </Menu>
+      <div className="hidden sm:block">
+        <CreateMenu />
+      </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </header>
+    {/* Phones: floating action button. Rendered outside the header — its backdrop blur would
+        otherwise become the containing block for position: fixed. */}
+    <div className="fixed right-4 bottom-4 z-40 sm:hidden">
+      <CreateMenu fab />
+    </div>
+    </>
   );
 }

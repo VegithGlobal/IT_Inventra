@@ -100,6 +100,10 @@ async function wipe() {
 // ─── main ───────────────────────────────────────────────────────────────────
 
 async function main() {
+  // This wipes every table. Never let it run against a live install by accident.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "1") {
+    throw new Error("Refusing to wipe the database with demo data in production. Use npm run db:init for a real install (or set ALLOW_DEMO_SEED=1).");
+  }
   await wipe();
 
   // Users (app logins)

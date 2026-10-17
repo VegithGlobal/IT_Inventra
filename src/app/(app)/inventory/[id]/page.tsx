@@ -54,7 +54,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <StatCard label="Issued · 90 days" value={issued90} sub={issued90 ? `≈ ${(issued90 / 3).toFixed(1)} per month` : "No usage recorded"} />
         <StatCard label="Spent on this item" value={formatMoney(totalSpend)} />
       </div>
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="h-fit">
           <CardHeader title="Details" />
           <CardBody>
@@ -69,7 +69,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             />
           </CardBody>
         </Card>
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <h2 className="mb-3 text-[15px] font-semibold text-fg">Movement history</h2>
           <SimpleTable
             rows={i.movements}

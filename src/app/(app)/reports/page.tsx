@@ -14,7 +14,7 @@ export default function ReportsPage() {
       {sections.map((section) => (
         <section key={section} className="flex flex-col gap-3">
           <h2 className="text-[12px] font-medium tracking-[0.04em] text-fg-muted uppercase">{section}</h2>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {REPORTS.filter((r) => r.section === section).map((r) => (
               <Link
                 key={r.key}

@@ -20,7 +20,7 @@ async function Content() {
         title="Notifications"
         description={readOnly ? "Only admins can change these settings." : "Reminder timing, email delivery and the scheduled job."}
       />
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <ReminderDefaultsForm
           readOnly={readOnly}
           initial={{

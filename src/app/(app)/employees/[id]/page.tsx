@@ -121,7 +121,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <StatCard label="Tickets raised" value={e.tickets.length} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="h-fit">
           <CardHeader title="Profile" />
           <CardBody>
@@ -139,7 +139,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             />
           </CardBody>
         </Card>
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <Tabs defaultValue="current">
             <TabsList>
               <TabsTrigger value="current">Current assets ({e.heldAssets.length})</TabsTrigger>

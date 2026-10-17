@@ -3,10 +3,11 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { StorageDriver } from "./types";
 
-const root = path.resolve(process.cwd(), process.env.UPLOAD_DIR || "./uploads");
+// Uploads are runtime data, not code: keep the bundler from tracing (and shipping) the whole project.
+const root = path.resolve(/*turbopackIgnore: true*/ process.cwd(), process.env.UPLOAD_DIR || "./uploads");
 
 function resolveKey(key: string) {
-  const full = path.resolve(root, key);
+  const full = path.resolve(/*turbopackIgnore: true*/ root, key);
   // Keys are generated server-side, but never allow escaping the upload root.
   if (!full.startsWith(root + path.sep)) throw new Error("Invalid storage key");
   return full;

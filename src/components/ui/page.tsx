@@ -77,8 +77,8 @@ export function StatCard({
   return (
     <div className={cn("rounded-xl border border-line bg-surface p-5", className)}>
       <p className="text-[13px] text-fg-muted">{label}</p>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-[28px] leading-none font-semibold tracking-[-0.01em] text-fg tabular">{value}</span>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-[22px] leading-none font-semibold tracking-[-0.01em] text-fg tabular sm:text-[28px]">{value}</span>
         {trend}
       </div>
       {sub && <p className="mt-2 text-[12.5px] text-fg-muted">{sub}</p>}

@@ -15,7 +15,29 @@ export function SimpleTable<T>({
 }) {
   if (rows.length === 0) return <div className="rounded-xl border border-line bg-surface px-5 py-10 text-center text-[13.5px] text-fg-muted">{empty}</div>;
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+    <>
+      {/* Phones: cards. */}
+      <ul className="divide-y divide-line rounded-xl border border-line bg-surface sm:hidden">
+        {rows.map((row) => {
+          const [first, ...rest] = columns;
+          return (
+            <li key={rowKey(row)} className="flex flex-col gap-2 px-4 py-3">
+              <div className="text-[14px] text-fg">{first.cell(row)}</div>
+              {rest.length > 0 && (
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
+                  {rest.map((c, i) => (
+                    <div key={c.header || i} className="min-w-0">
+                      {c.header && <dt className="text-fg-muted">{c.header}</dt>}
+                      <dd className="truncate text-fg">{c.cell(row)}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    <div className="hidden overflow-x-auto rounded-xl border border-line bg-surface sm:block">
       <table className="w-full text-[13.5px]">
         <thead className="bg-app">
           <tr className="border-b border-line">
@@ -43,5 +65,6 @@ export function SimpleTable<T>({
         </tbody>
       </table>
     </div>
+    </>
   );
 }

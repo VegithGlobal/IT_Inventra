@@ -35,8 +35,8 @@ function Stat({ label, value, sub, trend, spark, href }: { label: string; value:
   return (
     <Link href={href} className="group flex flex-col rounded-xl border border-line bg-surface p-5 transition-[background-color,transform] duration-150 hover:-translate-y-0.5 hover:bg-subtle/60">
       <p className="text-[13px] text-fg-muted">{label}</p>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-[28px] leading-none font-semibold tracking-[-0.01em] text-fg tabular">{value}</span>
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span className="text-[22px] leading-none font-semibold tracking-[-0.01em] text-fg tabular sm:text-[28px]">{value}</span>
         {trend}
       </div>
       {sub && <p className="mt-2 text-[12.5px] text-fg-muted">{sub}</p>}
@@ -219,8 +219,8 @@ async function Watchlists() {
   await connection();
   const { warranty, lowStock, activity } = await getWatchlists();
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Card>
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <Card className="min-w-0">
         <CardHeader title="Warranty expiring soon" description="Next 60 days" />
         <ul className="pb-2">
           {warranty.length === 0 && <li className="px-5 py-6 text-[13px] text-fg-muted">No warranties ending soon.</li>}
@@ -288,20 +288,20 @@ export default function DashboardPage() {
       <Suspense fallback={box("h-36")}>
         <Stats />
       </Suspense>
-      <div className="grid gap-4 xl:grid-cols-5">
-        <div className="xl:col-span-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
+        <div className="min-w-0 xl:col-span-3">
           <Suspense fallback={box("h-96")}>
             <Renewals />
           </Suspense>
         </div>
-        <div className="xl:col-span-2">
+        <div className="min-w-0 xl:col-span-2">
           <Suspense fallback={box("h-96")}>
             <MyTickets />
           </Suspense>
         </div>
       </div>
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+        <div className="min-w-0 xl:col-span-2">
           <Suspense fallback={box("h-[420px]")}>
             <SpendChart />
           </Suspense>

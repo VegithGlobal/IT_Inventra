@@ -133,9 +133,9 @@ function Timeline({ items }: { items: UpcomingItem[] }) {
   return (
     <Card className="divide-y divide-line">
       {[...groups.entries()].map(([label, list]) => (
-        <div key={label} className="grid gap-2 px-5 py-4 sm:grid-cols-[140px_1fr]">
+        <div key={label} className="grid grid-cols-1 gap-2 px-5 py-4 sm:grid-cols-[140px_1fr]">
           <p className={cn("text-[13px] font-medium", label === "Overdue" ? "text-danger" : "text-fg-secondary")}>{label}</p>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex min-w-0 flex-col gap-2">
             {list.map((i) => (
               <li key={i.key}>
                 <Link href={i.href} className="flex items-center gap-3 rounded-md px-2 py-1.5 -mx-2 hover:bg-subtle">

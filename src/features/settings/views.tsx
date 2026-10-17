@@ -38,7 +38,7 @@ export function CompanyView({ initial, hasLogo, isAdmin }: { initial: CompanyInp
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Company profile" description={isAdmin ? "Shown on handover forms, labels, reports and emails." : "Only admins can change these settings."} />
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader title="Details" />
           <CardBody>
@@ -260,7 +260,7 @@ export function UsersView({ rows, meId }: { rows: UserRow[]; meId: string }) {
           </Button>
         }
       />
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {ROLES.map((role) => (
           <Card key={role} className="p-4">
             <p className="text-[13.5px] font-medium text-fg">
@@ -376,7 +376,7 @@ export function CategoriesView({ expense, ticket, isAdmin }: { expense: ExpenseC
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Categories" description="Expense categories (and their chart colours) and ticket categories." />
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="Expense categories" action={isAdmin && <Button size="sm" onClick={() => setEditExpense("new")}><Plus />Add</Button>} />
           {list(expense, "expenses", (i) => setEditExpense(i), (i) => categoryColor(i.colorKey), (i) => i.isSystem)}

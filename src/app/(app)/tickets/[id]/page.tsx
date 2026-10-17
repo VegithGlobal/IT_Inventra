@@ -67,8 +67,8 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         )}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
           {t.description && (
             <Card>
               <CardBody className="pt-5 text-[14px] leading-relaxed whitespace-pre-line text-fg">{t.description}</CardBody>

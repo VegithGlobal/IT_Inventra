@@ -77,7 +77,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <StatCard label="Last payment" value={<span className="text-[20px]">{s.payments[0] ? formatDate(s.payments[0].paidAt) : "—"}</span>} sub={s.payments[0] ? `${formatMoney(s.payments[0].amount)} · ${PAYMENT_MODE[s.payments[0].paymentMode]}` : undefined} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="h-fit">
           <CardHeader title="Details" />
           <CardBody>
@@ -108,7 +108,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
           </CardBody>
         </Card>
 
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <Tabs defaultValue="payments">
             <TabsList>
               <TabsTrigger value="payments">Payment history ({s.payments.length})</TabsTrigger>

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Suspense, useSyncExternalStore, type ReactNode } from "react";
 import { Tip } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
-import { BUILT_PHASE, NAV, isActive, type NavItem } from "./nav";
+import { NAV, isActive, type NavItem } from "./nav";
 
 const STORAGE_KEY = "itops.sidebar.collapsed";
 const listeners = new Set<() => void>();
@@ -48,7 +48,6 @@ export function Logo({ collapsed, mark }: { collapsed?: boolean; mark: ReactNode
 
 function NavLink({ item, collapsed, onNavigate, pathname }: { item: NavItem; collapsed: boolean; onNavigate?: () => void; pathname: string | null }) {
   const active = pathname !== null && isActive(pathname, item.href);
-  const soon = item.phase > BUILT_PHASE;
   const Icon = item.icon;
 
   const body = (
@@ -56,28 +55,22 @@ function NavLink({ item, collapsed, onNavigate, pathname }: { item: NavItem; col
       {active && <span className="absolute top-2 bottom-2 left-0 w-[3px] rounded-full bg-brand" aria-hidden />}
       <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
       {!collapsed && <span className="truncate">{item.label}</span>}
-      {!collapsed && soon && <span className="ml-auto text-[11px] text-fg-muted">Phase {item.phase}</span>}
     </>
   );
   const cls = cn(
     "relative flex h-9 items-center gap-3 rounded-md px-3 text-[13.5px] transition-colors duration-150 outline-none focus-visible:ring-[3px] focus-visible:ring-fg/15",
     collapsed && "justify-center px-0",
     active ? "bg-subtle font-medium text-fg" : "text-fg-secondary hover:bg-subtle hover:text-fg",
-    soon && "pointer-events-none opacity-55",
   );
 
-  const el = soon ? (
-    <span className={cls} aria-disabled="true">
-      {body}
-    </span>
-  ) : (
+  const el = (
     <Link href={item.href} className={cls} aria-current={active ? "page" : undefined} onClick={onNavigate}>
       {body}
     </Link>
   );
 
   return collapsed ? (
-    <Tip label={soon ? `${item.label} · Phase ${item.phase}` : item.label} side="right">
+    <Tip label={item.label} side="right">
       {el}
     </Tip>
   ) : (

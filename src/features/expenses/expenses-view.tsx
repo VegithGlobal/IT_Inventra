@@ -67,15 +67,15 @@ function RangePicker({ active, from, to }: { active: RangeKey; from: string; to:
         ))}
       </div>
       <form
-        className="flex items-center gap-1.5"
+        className="flex w-full items-center gap-1.5 sm:w-auto"
         onSubmit={(e) => {
           e.preventDefault();
           if (custom.from && custom.to) go({ from: custom.from, to: custom.to });
         }}
       >
-        <Input type="date" aria-label="From" value={custom.from} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} className={cn("h-8 w-36", active === "custom" && "border-fg")} />
+        <Input type="date" aria-label="From" value={custom.from} onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))} className={cn("h-8 min-w-0 flex-1 sm:w-36 sm:flex-none", active === "custom" && "border-fg")} />
         <span className="text-fg-muted">–</span>
-        <Input type="date" aria-label="To" value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} className={cn("h-8 w-36", active === "custom" && "border-fg")} />
+        <Input type="date" aria-label="To" value={custom.to} onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))} className={cn("h-8 min-w-0 flex-1 sm:w-36 sm:flex-none", active === "custom" && "border-fg")} />
         <Button type="submit" size="sm">
           Apply
         </Button>
@@ -245,7 +245,7 @@ export function ExpensesView({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader title="Monthly IT spend" description={`By category · ${rangeLabel}`} />
           <CardBody>

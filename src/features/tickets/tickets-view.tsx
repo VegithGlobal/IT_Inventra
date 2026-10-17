@@ -125,7 +125,7 @@ function MyToday({ rows }: { rows: TicketRow[] }) {
         <StatCard label="New today" value={newToday.length} />
         <StatCard label="Resolved today" value={resolvedToday.length} />
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <TodayList title="Overdue" tone="danger" items={overdue} empty="Nothing overdue." />
         <TodayList title="Due today" tone="brand" items={dueToday} empty="Nothing else due today." />
         <TodayList title="High & critical" items={urgent} empty="No urgent tickets." />
@@ -175,7 +175,7 @@ function Insights({ m }: { m: TicketMetrics }) {
           <TicketsPerMonthChart data={m.months} />
         </CardBody>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <CardHeader title="Top categories" />
           <CardBody>

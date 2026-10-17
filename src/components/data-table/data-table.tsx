@@ -217,8 +217,9 @@ export function DataTable<T>({
         </div>
       )}
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Phones: stacked cards. sm and up: the table. */}
+      <MobileCards rows={table.getRowModel().rows} onRowClick={onRowClick} />
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full border-collapse text-[13.5px]">
           <thead className="sticky top-0 z-10 bg-app">
             {table.getHeaderGroups().map((hg) => (
@@ -282,16 +283,16 @@ export function DataTable<T>({
             ))}
           </tbody>
         </table>
-        {filteredCount === 0 && (
-          <div>
-            {data.length === 0 && empty ? (
-              empty
-            ) : (
-              <p className="px-4 py-12 text-center text-[13.5px] text-fg-muted">No results match your search or filters.</p>
-            )}
-          </div>
-        )}
       </div>
+      {filteredCount === 0 && (
+        <div>
+          {data.length === 0 && empty ? (
+            empty
+          ) : (
+            <p className="px-4 py-12 text-center text-[13.5px] text-fg-muted">No results match your search or filters.</p>
+          )}
+        </div>
+      )}
 
       {/* Pagination */}
       {filteredCount > 0 && (
@@ -314,6 +315,54 @@ export function DataTable<T>({
         </div>
       )}
     </div>
+  );
+}
+
+/** Card list for small screens: first column as the title, the rest as label/value pairs. */
+function MobileCards<T>({ rows, onRowClick }: { rows: Row<T>[]; onRowClick?: (row: T) => void }) {
+  if (rows.length === 0) return null;
+  return (
+    <ul className="divide-y divide-line sm:hidden">
+      {rows.map((row) => {
+        const cells = row.getVisibleCells().filter((c) => !c.column.columnDef.meta?.className?.split(" ").includes("hidden"));
+        const select = cells.find((c) => c.column.id === "__select");
+        const actions = cells.find((c) => c.column.id === "actions");
+        const fields = cells.filter((c) => c !== select && c !== actions);
+        const [title, ...rest] = fields;
+        const labelOf = (c: (typeof cells)[number]) => {
+          const d = c.column.columnDef;
+          return d.meta?.label ?? (typeof d.header === "string" ? d.header : c.column.id);
+        };
+        return (
+          <li
+            key={row.id}
+            onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+            data-selected={row.getIsSelected() || undefined}
+            className={cn("group flex flex-col gap-2 px-4 py-3 data-[selected]:bg-brand-soft/60", onRowClick && "cursor-pointer active:bg-subtle")}
+          >
+            <div className="flex items-start gap-3">
+              {select && <div className="pt-0.5">{flexRender(select.column.columnDef.cell, select.getContext())}</div>}
+              <div className="min-w-0 flex-1 text-[14px] text-fg">{title && flexRender(title.column.columnDef.cell, title.getContext())}</div>
+              {/* Row menus are hover-revealed on desktop; always visible here. */}
+              {actions && <div className="shrink-0 [&_button]:opacity-100">{flexRender(actions.column.columnDef.cell, actions.getContext())}</div>}
+            </div>
+            {rest.length > 0 && (
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[12.5px]">
+                {rest.slice(0, 6).map((c) => {
+                  const label = labelOf(c);
+                  return (
+                    <div key={c.id} className="min-w-0">
+                      {label && <dt className="text-fg-muted">{label}</dt>}
+                      <dd className="truncate text-fg [&_*]:max-w-full">{flexRender(c.column.columnDef.cell, c.getContext())}</dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

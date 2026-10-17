@@ -58,7 +58,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <StatCard label="Documents" value={v.documents.length} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="h-fit">
           <CardHeader title="Contact" />
           <CardBody>
@@ -83,7 +83,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
           </CardBody>
         </Card>
 
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <Tabs defaultValue="subscriptions">
             <TabsList>
               <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
