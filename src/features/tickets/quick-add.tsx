@@ -36,7 +36,8 @@ export function QuickTicket({ lookups, canWrite }: { lookups: TicketLookups; can
   useEffect(() => {
     if (!canWrite) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return;
+      // Autofill fires keydown events without a key.
+      if (e.key?.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey || e.repeat || isTyping(e.target)) return;
       e.preventDefault();
       setPreset({});
     };

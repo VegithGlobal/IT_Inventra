@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowLeftRight, LogIn, LogOut, MoreHorizontal, Printer } from "lucide-react";
+import { Archive, ArrowLeftRight, LogIn, LogOut, MoreHorizontal, Printer, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -12,7 +12,7 @@ import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import type { Lookups } from "@/features/employees/queries";
 import { AssignDialog, CheckInDialog, TransferDialog } from "@/features/assignments/dialogs";
 import type { AssignOptions } from "@/features/assignments/queries";
-import { archiveAsset } from "./actions";
+import { archiveAsset, deleteAssets } from "./actions";
 import { AssetForm } from "./asset-form";
 import type { AssetInput } from "./schema";
 
@@ -22,15 +22,17 @@ export function AssetActions({
   lookups,
   assignOptions,
   openAssignment,
+  canDelete,
 }: {
   asset: { id: string; assetTag: string; name: string; status: string };
   initial: AssetInput;
   lookups: Lookups;
   assignOptions: AssignOptions;
   openAssignment: { id: string; employeeId: string; employeeName: string; condition: "NEW" | "GOOD" | "FAIR" | "POOR" } | null;
+  canDelete: boolean;
 }) {
   const router = useRouter();
-  const [dialog, setDialog] = useState<"assign" | "checkin" | "transfer" | "archive" | null>(null);
+  const [dialog, setDialog] = useState<"assign" | "checkin" | "transfer" | "archive" | "delete" | null>(null);
   const { pending, run } = useActionRunner();
   const close = (o: boolean) => !o && setDialog(null);
   const assignable = !openAssignment && !["LOST_STOLEN", "DISPOSED", "RETIRED"].includes(asset.status);
@@ -56,6 +58,11 @@ export function AssetActions({
           <MenuItem danger disabled={!!openAssignment} onSelect={() => setDialog("archive")}>
             <Archive /> Archive asset
           </MenuItem>
+          {canDelete && (
+            <MenuItem danger onSelect={() => setDialog("delete")}>
+              <Trash2 /> Delete permanently
+            </MenuItem>
+          )}
         </MenuContent>
       </Menu>
       <EditSheet title={`Edit ${asset.assetTag}`}>
@@ -114,6 +121,25 @@ export function AssetActions({
         }
       >
         <p className="text-[13.5px] text-fg-secondary">The asset disappears from lists but its history, expenses and documents are kept.</p>
+      </Modal>
+      <Modal
+        open={dialog === "delete"}
+        onOpenChange={close}
+        title={`Delete ${asset.assetTag} permanently?`}
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setDialog(null)}>Cancel</Button>
+            <Button variant="danger" disabled={pending} onClick={() => run(() => deleteAssets({ ids: [asset.id] }), "Asset deleted", () => router.push("/assets"))}>
+              Delete permanently
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[13.5px] text-fg-secondary">
+          Removes the asset with its assignment history, repairs and documents. This can&apos;t be undone.
+          {openAssignment && ` It's currently assigned to ${openAssignment.employeeName}.`}
+        </p>
       </Modal>
     </>
   );

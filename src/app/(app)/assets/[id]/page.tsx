@@ -10,7 +10,7 @@ import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader, PageSkeleton, StatCard } from "@/components/ui/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AssetActions } from "@/features/assets/asset-actions";
-import { assetFormValues, getAsset } from "@/features/assets/queries";
+import { assetFormValues, getAsset, lastUsers } from "@/features/assets/queries";
 import { getAssignOptions } from "@/features/assignments/queries";
 import { LinkedDocuments } from "@/features/documents/linked-documents";
 import { getLookups } from "@/features/employees/queries";
@@ -66,6 +66,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
               lookups={lookups}
               assignOptions={assignOptions}
               openAssignment={open ? { id: open.id, employeeId: open.employeeId, employeeName: open.employee.name, condition: open.conditionAtIssue } : null}
+              canDelete={user.role === "ADMIN"}
             />
           )
         }
@@ -126,6 +127,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
                   items={[
                     { label: "Brand / model", value: [a.brand, a.model].filter(Boolean).join(" ") || null },
                     { label: "Serial number", value: a.serialNumber && <span className="font-mono text-[12.5px]">{a.serialNumber}</span> },
+                    { label: "Previous users", value: lastUsers(a).join(", ") },
                     { label: "Condition", value: ASSET_CONDITION[a.condition].label },
                     { label: "Location", value: a.location?.name },
                     { label: "Department", value: a.department?.name },

@@ -5,6 +5,16 @@ import { bookValue } from "@/lib/depreciation";
 import { toNumber } from "@/lib/format";
 import type { AssetInput } from "./schema";
 
+/** Up to three most recent past users: returned check-outs first, then names from before the app. */
+export function lastUsers(a: { previousUsers: string[]; currentHolderId: string | null; assignments: { returnedAt: Date | null; employee: { id: string; name: string } }[] }) {
+  const returned = a.assignments
+    .filter((x) => x.returnedAt && x.employee.id !== a.currentHolderId)
+    .sort((x, y) => y.returnedAt!.getTime() - x.returnedAt!.getTime())
+    .map((x) => x.employee.name);
+  const seen = new Set<string>();
+  return [...returned, ...a.previousUsers].filter((n) => !seen.has(n.toLowerCase()) && (seen.add(n.toLowerCase()), true)).slice(0, 3);
+}
+
 export async function listAssets() {
   const assets = await db.asset.findMany({
     where: { deletedAt: null },
@@ -15,6 +25,12 @@ export async function listAssets() {
       location: { select: { name: true } },
       department: { select: { name: true } },
       vendor: { select: { name: true } },
+      assignments: {
+        where: { returnedAt: { not: null } },
+        orderBy: { returnedAt: "desc" },
+        take: 3,
+        select: { returnedAt: true, employee: { select: { id: true, name: true } } },
+      },
     },
   });
   return assets.map((a) => ({
@@ -29,6 +45,7 @@ export async function listAssets() {
     condition: a.condition,
     holder: a.currentHolder?.name ?? null,
     holderId: a.currentHolder?.id ?? null,
+    previousUsers: lastUsers(a),
     location: a.location?.name ?? null,
     department: a.department?.name ?? null,
     vendor: a.vendor?.name ?? null,

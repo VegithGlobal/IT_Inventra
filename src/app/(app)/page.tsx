@@ -90,8 +90,8 @@ async function Stats() {
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
       <Stat label="Total assets" value={formatNumber(s.total)} sub={`${s.underRepair} under repair`} href="/assets" />
-      <Stat label="Assigned" value={formatNumber(s.assigned)} sub={s.total ? `${Math.round((s.assigned / s.total) * 100)}% of assets` : undefined} href="/assignments" />
-      <Stat label="In stock" value={formatNumber(s.inStock)} sub="Ready to assign" href="/assets" />
+      <Stat label="Assigned" value={formatNumber(s.assigned)} sub={s.total ? `${Math.round((s.assigned / s.total) * 100)}% of assets` : undefined} href="/assets?status=ASSIGNED" />
+      <Stat label="In stock" value={formatNumber(s.inStock)} sub="Ready to assign" href="/assets?status=IN_STOCK" />
       <Stat
         label="Open tickets"
         value={formatNumber(s.openTickets)}

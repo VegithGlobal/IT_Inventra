@@ -7,9 +7,10 @@ import { ActionError, createAction } from "@/lib/action";
 import type { Tx } from "@/lib/db";
 import { parseDateInput, parseOptionalDate } from "@/lib/dates";
 import { toDecimalOrNull } from "@/lib/decimal";
+import { storage } from "@/lib/storage";
 import { orNull } from "@/lib/validation";
 import { systemCategoryId } from "@/features/expenses/system";
-import { ASSET_CSV_HEADERS, assetImportSchema, assetSchema, assetUpdateSchema, bulkStatusSchema, type AssetInput } from "./schema";
+import { ASSET_CSV_HEADERS, assetImportSchema, assetSchema, assetUpdateSchema, bulkStatusSchema, deleteAssetsSchema, type AssetInput } from "./schema";
 
 /** Next tag for a type, e.g. LAP-0013. Row-locked inside the transaction. */
 async function nextTag(tx: Tx, typeId: string) {
@@ -105,6 +106,45 @@ export const archiveAsset = createAction({
     return { id };
   },
 });
+
+/**
+ * Permanent delete (admin only). Removes the assets with their assignments, repairs and documents.
+ * Expenses stay (they're real spend) but lose the link; tickets, reminders and license seats are unlinked too.
+ */
+const deleteAssetsTx = createAction({
+  schema: deleteAssetsSchema,
+  roles: ["ADMIN"],
+  handler: async ({ ids }, { tx, audit }) => {
+    const assets = await tx.asset.findMany({ where: { id: { in: ids } } });
+    if (!assets.length) throw new ActionError("Asset not found.");
+    const assetIds = assets.map((a) => a.id);
+    const repairIds = (await tx.maintenanceRecord.findMany({ where: { assetId: { in: assetIds } }, select: { id: true } })).map((m) => m.id);
+    const docWhere = { OR: [{ assetId: { in: assetIds } }, { assignment: { assetId: { in: assetIds } } }, { maintenanceId: { in: repairIds } }] };
+    const fileKeys = (await tx.document.findMany({ where: docWhere, select: { fileKey: true } })).map((d) => d.fileKey);
+
+    await tx.document.deleteMany({ where: docWhere });
+    await tx.expense.updateMany({ where: { OR: [{ assetId: { in: assetIds } }, { maintenanceId: { in: repairIds } }] }, data: { assetId: null, maintenanceId: null } });
+    await tx.maintenanceRecord.deleteMany({ where: { id: { in: repairIds } } });
+    await tx.assetAssignment.deleteMany({ where: { assetId: { in: assetIds } } });
+    await tx.ticket.updateMany({ where: { assetId: { in: assetIds } }, data: { assetId: null } });
+    await tx.licenseSeat.deleteMany({ where: { assetId: { in: assetIds }, employeeId: null } });
+    await tx.licenseSeat.updateMany({ where: { assetId: { in: assetIds } }, data: { assetId: null } });
+    await tx.reminder.updateMany({ where: { assetId: { in: assetIds } }, data: { assetId: null } });
+    await tx.asset.deleteMany({ where: { id: { in: assetIds } } });
+    for (const before of assets) {
+      await audit({ action: "DELETE", entityType: "Asset", entityId: before.id, entityLabel: `${before.assetTag} · ${before.name} (deleted permanently)`, before });
+    }
+    return { deleted: assets.length, fileKeys };
+  },
+});
+
+export async function deleteAssets(input: { ids: string[] }) {
+  const result = await deleteAssetsTx(input);
+  if (!result.ok) return result;
+  // Files go only after the rows are gone for good.
+  await Promise.allSettled(result.data.fileKeys.map((k) => storage.delete(k)));
+  return { ok: true as const, data: { deleted: result.data.deleted } };
+}
 
 export const bulkSetStatus = createAction({
   schema: bulkStatusSchema,

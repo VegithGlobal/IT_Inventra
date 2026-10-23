@@ -204,6 +204,8 @@ model Asset {
   condition       AssetCondition @default(GOOD)
   status          AssetStatus    @default(IN_STOCK)
   currentHolderId String?
+  /// Past users recorded before this app (names only, most recent first), e.g. from the old asset sheet.
+  previousUsers   String[]       @default([])
   notes           String?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

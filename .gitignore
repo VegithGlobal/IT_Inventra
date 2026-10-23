@@ -45,3 +45,7 @@ next-env.d.ts
 /uploads
 .env.old
 /src/generated
+
+# real company data (employee names, phone numbers) — keep out of the repo
+*.xlsx
+/legacy/*.json
