@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Employees" };
 async function Content() {
   const user = await requireUser();
   const [rows, lookups] = await Promise.all([listEmployees(), getLookups()]);
-  return <EmployeesView rows={rows} lookups={lookups} canWrite={canWrite(user.role)} />;
+  return <EmployeesView rows={rows} lookups={lookups} canWrite={canWrite(user.role)} canDelete={user.role === "ADMIN"} />;
 }
 
 export default function EmployeesPage() {

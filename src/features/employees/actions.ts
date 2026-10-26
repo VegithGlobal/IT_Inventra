@@ -3,8 +3,9 @@
 import { z } from "zod";
 import { ActionError, createAction } from "@/lib/action";
 import { parseDateInput, parseOptionalDate } from "@/lib/dates";
+import { storage } from "@/lib/storage";
 import { orNull } from "@/lib/validation";
-import { EMPLOYEE_CSV_HEADERS, employeeImportSchema, employeeSchema, employeeUpdateSchema, type EmployeeInput } from "./schema";
+import { deleteEmployeesSchema, EMPLOYEE_CSV_HEADERS, employeeImportSchema, employeeSchema, employeeUpdateSchema, type EmployeeInput } from "./schema";
 
 function toData(v: EmployeeInput) {
   return {
@@ -58,6 +59,78 @@ export const archiveEmployee = createAction({
     return { id };
   },
 });
+
+/**
+ * Permanent delete (admin only). Removes the employees with their logins, assignment history,
+ * documents and the tickets they raised. Expenses, repairs and stock movements stay (they're real
+ * spend) but lose the link. Their name is kept in each asset's "previous users".
+ * Same guard as archive: anyone still holding assets, license seats or active logins is refused,
+ * so nothing they have goes untracked.
+ */
+const deleteEmployeesTx = createAction({
+  schema: deleteEmployeesSchema,
+  roles: ["ADMIN"],
+  handler: async ({ ids }, { tx, audit }) => {
+    const employees = await tx.employee.findMany({ where: { id: { in: ids } } });
+    if (!employees.length) throw new ActionError("Employee not found.");
+    const empIds = employees.map((e) => e.id);
+    const nameOf = (id: string) => employees.find((e) => e.id === id)?.name ?? "";
+    const refuse = (what: string, holderIds: string[]) => {
+      const names = [...new Set(holderIds.map(nameOf))];
+      const list = names.slice(0, 3).join(", ") + (names.length > 3 ? ` and ${names.length - 3} more` : "");
+      throw new ActionError(`${list} still ${names.length === 1 ? "has" : "have"} ${what} first.`);
+    };
+
+    const held = await tx.asset.findMany({ where: { currentHolderId: { in: empIds }, deletedAt: null }, select: { currentHolderId: true } });
+    if (held.length) refuse("assets assigned. Check them in", held.map((a) => a.currentHolderId!));
+    const seats = await tx.licenseSeat.findMany({ where: { employeeId: { in: empIds }, revokedAt: null, license: { deletedAt: null } }, select: { employeeId: true } });
+    if (seats.length) refuse("license seats. Revoke them", seats.map((s) => s.employeeId!));
+    const logins = await tx.employeeAccount.findMany({ where: { employeeId: { in: empIds }, deletedAt: null, status: "ACTIVE" }, select: { employeeId: true } });
+    if (logins.length) refuse("active logins. Block them and mark them closed", logins.map((a) => a.employeeId));
+
+    // Keep their name on the assets they used, so "Previous users" still shows it.
+    const used = await tx.assetAssignment.findMany({ where: { employeeId: { in: empIds } }, select: { assetId: true, employeeId: true } });
+    for (const assetId of new Set(used.map((u) => u.assetId))) {
+      const asset = await tx.asset.findUnique({ where: { id: assetId }, select: { previousUsers: true } });
+      if (!asset) continue;
+      const names = [...new Set(used.filter((u) => u.assetId === assetId).map((u) => nameOf(u.employeeId)))];
+      const add = names.filter((n) => !asset.previousUsers.some((p) => p.toLowerCase() === n.toLowerCase()));
+      if (add.length) await tx.asset.update({ where: { id: assetId }, data: { previousUsers: [...add, ...asset.previousUsers] } });
+    }
+
+    const ticketIds = (await tx.ticket.findMany({ where: { requesterId: { in: empIds } }, select: { id: true } })).map((t) => t.id);
+    const docWhere = { OR: [{ employeeId: { in: empIds } }, { assignment: { employeeId: { in: empIds } } }, { ticketId: { in: ticketIds } }] };
+    const fileKeys = [
+      ...(await tx.document.findMany({ where: docWhere, select: { fileKey: true } })).map((d) => d.fileKey),
+      ...employees.map((e) => e.photoKey).filter((k): k is string => !!k),
+    ];
+
+    await tx.document.deleteMany({ where: docWhere });
+    await tx.expense.updateMany({ where: { ticketId: { in: ticketIds } }, data: { ticketId: null } });
+    await tx.maintenanceRecord.updateMany({ where: { ticketId: { in: ticketIds } }, data: { ticketId: null } });
+    await tx.stockMovement.updateMany({ where: { ticketId: { in: ticketIds } }, data: { ticketId: null } });
+    await tx.ticketComment.deleteMany({ where: { ticketId: { in: ticketIds } } });
+    await tx.ticket.deleteMany({ where: { id: { in: ticketIds } } });
+    await tx.stockMovement.updateMany({ where: { employeeId: { in: empIds } }, data: { employeeId: null } });
+    await tx.licenseSeat.deleteMany({ where: { employeeId: { in: empIds }, assetId: null } });
+    await tx.licenseSeat.updateMany({ where: { employeeId: { in: empIds } }, data: { employeeId: null } });
+    await tx.employeeAccount.deleteMany({ where: { employeeId: { in: empIds } } });
+    await tx.assetAssignment.deleteMany({ where: { employeeId: { in: empIds } } });
+    await tx.employee.deleteMany({ where: { id: { in: empIds } } });
+    for (const before of employees) {
+      await audit({ action: "DELETE", entityType: "Employee", entityId: before.id, entityLabel: `${before.name} · ${before.employeeCode} (deleted permanently)`, before });
+    }
+    return { deleted: employees.length, fileKeys };
+  },
+});
+
+export async function deleteEmployees(input: { ids: string[] }) {
+  const result = await deleteEmployeesTx(input);
+  if (!result.ok) return result;
+  // Files go only after the rows are gone for good.
+  await Promise.allSettled(result.data.fileKeys.map((k) => storage.delete(k)));
+  return { ok: true as const, data: { deleted: result.data.deleted } };
+}
 
 /** CSV import. Matches department/location by name; skips rows whose employee ID already exists. */
 export const importEmployees = createAction({

@@ -1,19 +1,22 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus, Users } from "lucide-react";
+import { Plus, Trash2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 import { CsvImport } from "@/components/csv-import";
 import { DataTable } from "@/components/data-table/data-table";
+import { useActionRunner } from "@/components/forms";
 import { useQueryFlag } from "@/components/use-query-flag";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SlideOver } from "@/components/ui/dialog";
+import { Modal, SlideOver } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { formatDate, formatMoney } from "@/lib/format";
 import { EMPLOYEE_STATUS, toOptions } from "@/lib/options";
-import { importEmployees } from "./actions";
+import { deleteEmployees, importEmployees } from "./actions";
 import { EmployeeForm } from "./employee-form";
 import type { EmployeeRow, Lookups } from "./queries";
 import { EMPLOYEE_CSV_HEADERS } from "./schema";
@@ -74,9 +77,13 @@ const columns: ColumnDef<EmployeeRow, unknown>[] = [
   },
 ];
 
-export function EmployeesView({ rows, lookups, canWrite }: { rows: EmployeeRow[]; lookups: Lookups; canWrite: boolean }) {
+export function EmployeesView({ rows, lookups, canWrite, canDelete }: { rows: EmployeeRow[]; lookups: Lookups; canWrite: boolean; canDelete: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useQueryFlag("new");
+  const [toDelete, setToDelete] = useState<{ rows: EmployeeRow[]; clear: () => void } | null>(null);
+  const { pending, run } = useActionRunner();
+  const deleteCount = toDelete?.rows.length ?? 0;
+  const holdingCount = toDelete?.rows.filter((r) => r.assetCount > 0).length ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -113,6 +120,16 @@ export function EmployeesView({ rows, lookups, canWrite }: { rows: EmployeeRow[]
           { columnId: "department", label: "Department", options: lookups.departments.map((d) => ({ value: d.name, label: d.name })) },
           { columnId: "location", label: "Location", options: lookups.locations.map((d) => ({ value: d.name, label: d.name })) },
         ]}
+        bulkActions={
+          canDelete
+            ? (selected, clear) => (
+                <Button size="sm" variant="danger" disabled={pending} onClick={() => setToDelete({ rows: selected, clear })}>
+                  <Trash2 />
+                  Delete
+                </Button>
+              )
+            : undefined
+        }
         empty={
           <EmptyState
             icon={Users}
@@ -122,6 +139,38 @@ export function EmployeesView({ rows, lookups, canWrite }: { rows: EmployeeRow[]
           />
         }
       />
+      <Modal
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+        title={deleteCount === 1 ? `Delete ${toDelete?.rows[0].name} permanently?` : `Delete ${deleteCount} employees permanently?`}
+        size="sm"
+        footer={
+          <>
+            <Button onClick={() => setToDelete(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              disabled={pending}
+              onClick={() =>
+                toDelete &&
+                run(() => deleteEmployees({ ids: toDelete.rows.map((r) => r.id) }), undefined, (r) => {
+                  toDelete.clear();
+                  setToDelete(null);
+                  toast.success(`${r.deleted} employee${r.deleted === 1 ? "" : "s"} deleted`);
+                })
+              }
+            >
+              Delete permanently
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[13.5px] text-fg-secondary">
+          Removes {deleteCount === 1 ? "the employee" : "these employees"} with their logins, assignment history, documents and the tickets they raised. Expenses
+          and repairs are kept. This can&apos;t be undone.
+          {holdingCount > 0 &&
+            ` ${holdingCount} ${holdingCount === 1 ? "still holds" : "still hold"} assets — check those in first, or the delete will be refused.`}
+        </p>
+      </Modal>
       <SlideOver open={open && canWrite} onOpenChange={setOpen} title="New employee">
         <EmployeeForm lookups={lookups} onDone={(id) => router.push(`/employees/${id}`)} />
       </SlideOver>

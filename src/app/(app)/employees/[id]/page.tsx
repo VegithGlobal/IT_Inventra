@@ -68,6 +68,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
               lookups={lookups}
               assignOptions={assignOptions}
               canAssign={e.status !== "EXITED"}
+              canDelete={user.role === "ADMIN"}
               initial={{
                 employeeCode: e.employeeCode,
                 name: e.name,
