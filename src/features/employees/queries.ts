@@ -2,6 +2,11 @@ import "server-only";
 import { db } from "@/lib/db";
 import { toNumber } from "@/lib/format";
 
+/** Company code = the letters an employee ID starts with (VG019 → VG, MLPL005 → MLPL, TMP-0009 → TMP). */
+export function companyCodeOf(employeeCode: string) {
+  return employeeCode.match(/^[A-Za-z]+/)?.[0].toUpperCase() ?? "—";
+}
+
 export async function listEmployees() {
   const rows = await db.employee.findMany({
     where: { deletedAt: null },
@@ -15,6 +20,7 @@ export async function listEmployees() {
   return rows.map((e) => ({
     id: e.id,
     employeeCode: e.employeeCode,
+    companyCode: companyCodeOf(e.employeeCode),
     name: e.name,
     email: e.email,
     phone: e.phone,
@@ -25,7 +31,10 @@ export async function listEmployees() {
     joiningDate: e.joiningDate,
     assetCount: e.heldAssets.length,
     assetValue: e.heldAssets.reduce((s, a) => s + toNumber(a.purchaseCost), 0),
-  }));
+  })).sort(
+    // Grouped by company, then by ID in numeric order (VG19 before VG100).
+    (a, b) => a.companyCode.localeCompare(b.companyCode) || a.employeeCode.localeCompare(b.employeeCode, undefined, { numeric: true }),
+  );
 }
 export type EmployeeRow = Awaited<ReturnType<typeof listEmployees>>[number];
 

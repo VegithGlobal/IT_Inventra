@@ -40,7 +40,14 @@ const columns: ColumnDef<EmployeeRow, unknown>[] = [
     accessorKey: "employeeCode",
     header: "Employee ID",
     cell: ({ getValue }) => <span className="font-mono text-[12.5px] text-fg-secondary">{String(getValue())}</span>,
+    sortingFn: "alphanumeric",
     meta: { csv: (r) => r.employeeCode },
+  },
+  {
+    accessorKey: "companyCode",
+    header: "Company",
+    cell: ({ getValue }) => <span className="font-mono text-[12.5px] font-medium">{String(getValue())}</span>,
+    meta: { csv: (r) => r.companyCode },
   },
   { accessorKey: "department", header: "Department", cell: ({ getValue }) => getValue() ?? "—", meta: { csv: (r) => r.department } },
   { accessorKey: "location", header: "Location", cell: ({ getValue }) => getValue() ?? "—", meta: { csv: (r) => r.location } },
@@ -82,6 +89,7 @@ export function EmployeesView({ rows, lookups, canWrite, canDelete }: { rows: Em
   const [open, setOpen] = useQueryFlag("new");
   const [toDelete, setToDelete] = useState<{ rows: EmployeeRow[]; clear: () => void } | null>(null);
   const { pending, run } = useActionRunner();
+  const companyCodes = [...new Set(rows.map((r) => r.companyCode))].sort();
   const deleteCount = toDelete?.rows.length ?? 0;
   const holdingCount = toDelete?.rows.filter((r) => r.assetCount > 0).length ?? 0;
 
@@ -110,12 +118,13 @@ export function EmployeesView({ rows, lookups, canWrite, canDelete }: { rows: Em
       <DataTable
         data={rows}
         columns={columns}
-        searchPlaceholder="Search name, ID, email…"
+        searchPlaceholder="Search name, ID, company, email…"
         exportName="employees"
         getRowId={(r) => r.id}
         onRowClick={(r) => router.push(`/employees/${r.id}`)}
         initialHidden={{ email: false }}
         filters={[
+          { columnId: "companyCode", label: "Company", options: companyCodes.map((c) => ({ value: c, label: c })) },
           { columnId: "status", label: "Status", options: toOptions(EMPLOYEE_STATUS) },
           { columnId: "department", label: "Department", options: lookups.departments.map((d) => ({ value: d.name, label: d.name })) },
           { columnId: "location", label: "Location", options: lookups.locations.map((d) => ({ value: d.name, label: d.name })) },
