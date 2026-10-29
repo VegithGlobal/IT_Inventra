@@ -138,8 +138,11 @@ export function DataTable<T>({
   function exportCsv() {
     const cols = table.getVisibleLeafColumns().filter((c) => c.columnDef.meta?.csv);
     const headers = cols.map((c) => c.columnDef.meta?.label ?? (typeof c.columnDef.header === "string" ? c.columnDef.header : c.id));
-    const rows = table.getSortedRowModel().rows.map((r: Row<T>) => cols.map((c) => c.columnDef.meta!.csv!(r.original)));
-    downloadCsv(`${exportName}-${new Date().toISOString().slice(0, 10)}`, toCsv(headers, rows));
+    // With rows ticked, export just those (in table order; ticked rows hidden by a filter go last).
+    const shown = table.getSortedRowModel().rows;
+    const picked = selected.length ? [...shown.filter((r) => r.getIsSelected()), ...table.getSelectedRowModel().rows.filter((r) => !shown.includes(r))] : shown;
+    const rows = picked.map((r: Row<T>) => cols.map((c) => c.columnDef.meta!.csv!(r.original)));
+    downloadCsv(`${exportName}${selected.length ? "-selected" : ""}-${new Date().toISOString().slice(0, 10)}`, toCsv(headers, rows));
   }
 
   return (
@@ -198,9 +201,9 @@ export function DataTable<T>({
             </MenuContent>
           </Menu>
           {exportName && (
-            <Button size="sm" variant="ghost" onClick={exportCsv} aria-label="Export CSV">
+            <Button size="sm" variant="ghost" onClick={exportCsv} aria-label={selected.length ? `Export ${selected.length} selected rows as CSV` : "Export CSV"}>
               <Download />
-              <span className="hidden sm:inline">Export</span>
+              <span className="hidden sm:inline">{selected.length ? `Export ${selected.length} selected` : "Export"}</span>
             </Button>
           )}
         </div>
@@ -211,6 +214,12 @@ export function DataTable<T>({
         <div className="flex items-center gap-3 border-b border-line bg-brand-soft px-4 py-2 text-[13px]">
           <span className="font-medium text-brand-text">{selected.length} selected</span>
           {bulkActions(selected, () => setRowSelection({}))}
+          {exportName && (
+            <Button size="sm" onClick={exportCsv}>
+              <Download />
+              Export
+            </Button>
+          )}
           <button type="button" className="ml-auto text-fg-secondary hover:text-fg" onClick={() => setRowSelection({})}>
             Clear selection
           </button>

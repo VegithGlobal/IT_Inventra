@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, LogIn, LogOut, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, LogIn, LogOut, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { ConfirmAction } from "@/components/confirm-action";
 import { EditSheet } from "@/components/edit-sheet";
@@ -10,7 +10,7 @@ import { AssignDialog } from "@/features/assignments/dialogs";
 import { NewTicketButton } from "@/features/tickets/quick-add";
 import { quickReturn } from "@/features/assignments/actions";
 import type { AssignOptions } from "@/features/assignments/queries";
-import { archiveEmployee, deleteEmployees } from "./actions";
+import { archiveEmployees, deleteEmployees, restoreEmployees } from "./actions";
 import { EmployeeForm } from "./employee-form";
 import type { Lookups } from "./queries";
 import type { EmployeeInput } from "./schema";
@@ -22,6 +22,8 @@ export function EmployeeActions({
   assignOptions,
   canAssign,
   canDelete,
+  archived,
+  handoverDone,
 }: {
   id: string;
   initial: EmployeeInput;
@@ -29,37 +31,56 @@ export function EmployeeActions({
   assignOptions: AssignOptions;
   canAssign: boolean;
   canDelete: boolean;
+  archived: boolean;
+  handoverDone: boolean;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   return (
     <>
-      {canDelete ? (
-        <ConfirmAction
-          action={deleteEmployees}
-          input={{ ids: [id] }}
-          label="Delete"
-          icon={<Trash2 />}
-          variant="ghost"
-          title={`Delete ${initial.name} permanently?`}
-          description="Removes the employee with their logins, assignment history, documents and the tickets they raised. Expenses and repairs are kept, and their name stays in each asset's previous users. Employees still holding assets, license seats or active logins can't be deleted. This can't be undone."
-          confirmLabel="Delete permanently"
-          successMessage="Employee deleted"
-          redirectTo="/employees"
-          danger
-        />
+      {archived ? (
+        <>
+          {canDelete && (
+            <ConfirmAction
+              action={deleteEmployees}
+              input={{ ids: [id] }}
+              label="Delete"
+              icon={<Trash2 />}
+              variant="ghost"
+              title={`Delete ${initial.name} permanently?`}
+              description={
+                handoverDone
+                  ? "Handover is done. Removes the employee with their logins, assignment history, documents and the tickets they raised. Expenses and repairs are kept, and their name stays in each asset's previous users. This can't be undone."
+                  : "Handover isn't finished yet — return their assets, revoke license seats and close their logins first, or the delete will be refused."
+              }
+              confirmLabel="Delete permanently"
+              successMessage="Employee deleted"
+              redirectTo="/employees?view=archived"
+              danger
+            />
+          )}
+          <ConfirmAction
+            action={restoreEmployees}
+            input={{ ids: [id] }}
+            label="Restore"
+            icon={<ArchiveRestore />}
+            variant="ghost"
+            title={`Restore ${initial.name}?`}
+            description="Moves them back to the current employees list. Their status stays exited — edit them to make them active again."
+            confirmLabel="Restore"
+            successMessage="Employee restored"
+          />
+        </>
       ) : (
         <ConfirmAction
-          action={archiveEmployee}
-          input={{ id }}
+          action={archiveEmployees}
+          input={{ ids: [id] }}
           label="Archive"
           icon={<Archive />}
           variant="ghost"
-          title="Archive employee?"
-          description="They disappear from lists and pickers. Their assignment history is kept. Employees still holding assets, license seats or active logins can't be archived."
+          title={`Archive ${initial.name}?`}
+          description="Use this when they leave. They move to the Archived tab, are marked exited (exit date today if not set) and drop out of pickers. Collect their assets, revoke license seats and close logins, then delete them."
           confirmLabel="Archive"
           successMessage="Employee archived"
-          redirectTo="/employees"
-          danger
         />
       )}
       {canAssign && <NewTicketButton label="New ticket" preset={{ requesterId: id }} />}

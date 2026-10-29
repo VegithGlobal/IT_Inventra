@@ -28,7 +28,7 @@ export type EmployeeInput = z.infer<typeof employeeSchema>;
 
 export const employeeUpdateSchema = z.object({ id: z.string().min(1), data: employeeSchema });
 
-export const deleteEmployeesSchema = z.object({ ids: z.array(z.string().min(1)).min(1).max(500) });
+export const employeeIdsSchema = z.object({ ids: z.array(z.string().min(1)).min(1).max(500) });
 
 export const EMPLOYEE_CSV_HEADERS = [
   "employee_id",

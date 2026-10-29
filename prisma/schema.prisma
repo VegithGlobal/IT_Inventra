@@ -133,6 +133,8 @@ model Employee {
   status       EmployeeStatus @default(ACTIVE)
   photoKey     String?
   notes        String?
+  /// Set when they leave: moved to the Archived tab until handover is done and they're deleted.
+  archivedAt   DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   deletedAt    DateTime?
@@ -149,6 +151,7 @@ model Employee {
 
   @@index([name])
   @@index([status])
+  @@index([archivedAt])
 }
 
 // ─── Assets ──────────────────────────────────────────────────────────────────

@@ -135,7 +135,7 @@ export function systemFormValues(s: { name: string; category: SystemInput["categ
 
 export async function getAccountLookups() {
   const [employees, systems, vendors] = await Promise.all([
-    db.employee.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, employeeCode: true, status: true } }),
+    db.employee.findMany({ where: { deletedAt: null, archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, employeeCode: true, status: true } }),
     db.appSystem.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, category: true } }),
     db.vendor.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);

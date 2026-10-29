@@ -15,6 +15,12 @@ export async function listEmployees() {
       department: { select: { name: true } },
       location: { select: { name: true } },
       heldAssets: { where: { deletedAt: null }, select: { purchaseCost: true } },
+      _count: {
+        select: {
+          licenseSeats: { where: { revokedAt: null, license: { deletedAt: null } } },
+          accounts: { where: { deletedAt: null, status: "ACTIVE" } },
+        },
+      },
     },
   });
   return rows.map((e) => ({
@@ -31,6 +37,10 @@ export async function listEmployees() {
     joiningDate: e.joiningDate,
     assetCount: e.heldAssets.length,
     assetValue: e.heldAssets.reduce((s, a) => s + toNumber(a.purchaseCost), 0),
+    archivedAt: e.archivedAt,
+    exitDate: e.exitDate,
+    /** What's still to collect before they can be deleted. */
+    pending: { assets: e.heldAssets.length, seats: e._count.licenseSeats, logins: e._count.accounts },
   })).sort(
     // Grouped by company, then by ID in numeric order (VG19 before VG100).
     (a, b) => a.companyCode.localeCompare(b.companyCode) || a.employeeCode.localeCompare(b.employeeCode, undefined, { numeric: true }),
@@ -45,7 +55,7 @@ export async function getLookups() {
     db.location.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     db.vendor.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, category: true } }),
     db.employee.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, archivedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, employeeCode: true, status: true, departmentId: true, locationId: true },
     }),

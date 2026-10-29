@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 import { ActionError, createAction } from "@/lib/action";
-import { parseDateInput, parseOptionalDate } from "@/lib/dates";
+import { parseDateInput, parseOptionalDate, today } from "@/lib/dates";
 import { storage } from "@/lib/storage";
 import { orNull } from "@/lib/validation";
-import { deleteEmployeesSchema, EMPLOYEE_CSV_HEADERS, employeeImportSchema, employeeSchema, employeeUpdateSchema, type EmployeeInput } from "./schema";
+import { EMPLOYEE_CSV_HEADERS, employeeIdsSchema, employeeImportSchema, employeeSchema, employeeUpdateSchema, type EmployeeInput } from "./schema";
 
 function toData(v: EmployeeInput) {
   return {
@@ -37,26 +37,46 @@ export const updateEmployee = createAction({
   handler: async ({ id, data }, { tx, audit }) => {
     const before = await tx.employee.findFirst({ where: { id, deletedAt: null } });
     if (!before) throw new ActionError("Employee not found.");
+    if (before.archivedAt && data.status !== "EXITED") throw new ActionError(`${before.name} is archived. Restore them first to change their status.`);
     const after = await tx.employee.update({ where: { id }, data: toData(data) });
     await audit({ action: "UPDATE", entityType: "Employee", entityId: id, entityLabel: after.name, before, after });
     return { id };
   },
 });
 
-export const archiveEmployee = createAction({
-  schema: z.object({ id: z.string().min(1) }),
-  handler: async ({ id }, { tx, audit }) => {
-    const before = await tx.employee.findFirst({ where: { id, deletedAt: null } });
-    if (!before) throw new ActionError("Employee not found.");
-    const held = await tx.asset.count({ where: { currentHolderId: id, deletedAt: null } });
-    if (held > 0) throw new ActionError(`${before.name} still holds ${held} asset(s). Check them in first.`);
-    const seats = await tx.licenseSeat.count({ where: { employeeId: id, revokedAt: null, license: { deletedAt: null } } });
-    if (seats > 0) throw new ActionError(`${before.name} still has ${seats} license seat(s). Revoke them first.`);
-    const logins = await tx.employeeAccount.count({ where: { employeeId: id, deletedAt: null, status: "ACTIVE" } });
-    if (logins > 0) throw new ActionError(`${before.name} still has ${logins} active login(s). Block them and mark them closed first.`);
-    const after = await tx.employee.update({ where: { id }, data: { deletedAt: new Date() } });
-    await audit({ action: "DELETE", entityType: "Employee", entityId: id, entityLabel: before.name, before, after });
-    return { id };
+/**
+ * Archive = they've left. Moves them to the Archived tab and marks them exited (exit date today
+ * if not set), so they drop out of pickers. Handover can still be pending; they can be deleted
+ * once it's done.
+ */
+export const archiveEmployees = createAction({
+  schema: employeeIdsSchema,
+  handler: async ({ ids }, { tx, audit }) => {
+    const employees = await tx.employee.findMany({ where: { id: { in: ids }, deletedAt: null, archivedAt: null } });
+    if (!employees.length) throw new ActionError("Employee not found.");
+    const now = new Date();
+    for (const before of employees) {
+      const after = await tx.employee.update({
+        where: { id: before.id },
+        data: { archivedAt: now, status: "EXITED", exitDate: before.exitDate ?? today() },
+      });
+      await audit({ action: "UPDATE", entityType: "Employee", entityId: before.id, entityLabel: `${before.name} (archived)`, before, after });
+    }
+    return { archived: employees.length };
+  },
+});
+
+/** Undo an archive. Status stays as it was set (edit them to make them active again). */
+export const restoreEmployees = createAction({
+  schema: employeeIdsSchema,
+  handler: async ({ ids }, { tx, audit }) => {
+    const employees = await tx.employee.findMany({ where: { id: { in: ids }, deletedAt: null, archivedAt: { not: null } } });
+    if (!employees.length) throw new ActionError("Employee not found.");
+    for (const before of employees) {
+      const after = await tx.employee.update({ where: { id: before.id }, data: { archivedAt: null } });
+      await audit({ action: "RESTORE", entityType: "Employee", entityId: before.id, entityLabel: before.name, before, after });
+    }
+    return { restored: employees.length };
   },
 });
 
@@ -64,15 +84,19 @@ export const archiveEmployee = createAction({
  * Permanent delete (admin only). Removes the employees with their logins, assignment history,
  * documents and the tickets they raised. Expenses, repairs and stock movements stay (they're real
  * spend) but lose the link. Their name is kept in each asset's "previous users".
- * Same guard as archive: anyone still holding assets, license seats or active logins is refused,
- * so nothing they have goes untracked.
+ * Only archived employees, and only once handover is done: anyone still holding assets, license
+ * seats or active logins is refused, so nothing they have goes untracked.
  */
 const deleteEmployeesTx = createAction({
-  schema: deleteEmployeesSchema,
+  schema: employeeIdsSchema,
   roles: ["ADMIN"],
   handler: async ({ ids }, { tx, audit }) => {
     const employees = await tx.employee.findMany({ where: { id: { in: ids } } });
     if (!employees.length) throw new ActionError("Employee not found.");
+    const unarchived = employees.filter((e) => !e.archivedAt);
+    if (unarchived.length) {
+      throw new ActionError(`Archive ${unarchived.length === 1 ? unarchived[0].name : `${unarchived.length} of these employees`} first, then delete after handover.`);
+    }
     const empIds = employees.map((e) => e.id);
     const nameOf = (id: string) => employees.find((e) => e.id === id)?.name ?? "";
     const refuse = (what: string, holderIds: string[]) => {

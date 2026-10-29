@@ -58,6 +58,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
               <Badge tone={EMPLOYEE_STATUS[e.status].tone} dot>
                 {EMPLOYEE_STATUS[e.status].label}
               </Badge>
+              {e.archivedAt && <Badge>Archived {formatDate(e.archivedAt)}</Badge>}
             </p>
           </div>
         </div>
@@ -69,6 +70,8 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
               assignOptions={assignOptions}
               canAssign={e.status !== "EXITED"}
               canDelete={user.role === "ADMIN"}
+              archived={!!e.archivedAt}
+              handoverDone={!offboarding}
               initial={{
                 employeeCode: e.employeeCode,
                 name: e.name,
@@ -150,6 +153,11 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             <CircleCheck className="size-5 shrink-0 text-success" aria-hidden />
             <p className="flex-1 text-[13.5px] text-fg">
               <span className="font-semibold">Offboarding complete.</span> No assets, license seats or active logins left with {e.name.split(" ")[0]}.
+              {e.archivedAt
+                ? user.role === "ADMIN"
+                  ? " You can delete them now."
+                  : " An admin can delete them now."
+                : " Archive them to move them out of the current list."}
             </p>
             {checklist}
           </div>

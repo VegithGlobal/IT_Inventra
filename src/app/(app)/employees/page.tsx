@@ -7,16 +7,18 @@ import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Employees" };
 
-async function Content() {
-  const user = await requireUser();
+async function Content({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [user, params] = await Promise.all([requireUser(), searchParams]);
+  // ?view=archived shows people who've left, until their handover is done and they're deleted.
+  const view = params.view === "archived" ? "archived" : "current";
   const [rows, lookups] = await Promise.all([listEmployees(), getLookups()]);
-  return <EmployeesView rows={rows} lookups={lookups} canWrite={canWrite(user.role)} canDelete={user.role === "ADMIN"} />;
+  return <EmployeesView key={view} view={view} rows={rows} lookups={lookups} canWrite={canWrite(user.role)} canDelete={user.role === "ADMIN"} />;
 }
 
-export default function EmployeesPage() {
+export default function EmployeesPage(props: PageProps<"/employees">) {
   return (
     <Suspense fallback={<PageSkeleton />}>
-      <Content />
+      <Content searchParams={props.searchParams} />
     </Suspense>
   );
 }
