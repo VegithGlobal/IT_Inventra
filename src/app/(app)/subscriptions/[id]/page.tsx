@@ -17,7 +17,7 @@ import { RevealCredentials, SubscriptionActions, VoidPaymentButton } from "@/fea
 import { monthlyEquivalent } from "@/lib/billing";
 import { daysBetween, today } from "@/lib/dates";
 import { formatDate, formatMoney, toNumber } from "@/lib/format";
-import { BILLING_CYCLE, PAYMENT_MODE, SUBSCRIPTION_CATEGORY, SUBSCRIPTION_STATUS } from "@/lib/options";
+import { BILLING_CYCLE, PAYMENT_MODE, subscriptionCategoryLabel, SUBSCRIPTION_STATUS } from "@/lib/options";
 import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Subscription" };
@@ -44,7 +44,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
               {SUBSCRIPTION_STATUS[s.status].label}
             </Badge>
             <span>
-              {SUBSCRIPTION_CATEGORY[s.category]}
+              {subscriptionCategoryLabel(s.category)}
               {s.vendor && (
                 <>
                   {" · "}

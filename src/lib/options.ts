@@ -9,7 +9,6 @@ import type {
   EmployeeStatus,
   ExpenseSource,
   PaymentMode,
-  SubscriptionCategory,
   SubscriptionStatus,
   SystemCategory,
   TicketPriority,
@@ -55,7 +54,10 @@ export const VENDOR_CATEGORY: Record<VendorCategory, string> = {
   OTHER: "Other",
 };
 
-export const SUBSCRIPTION_CATEGORY: Record<SubscriptionCategory, string> = {
+export const subscriptionCategoryLabel = (category: string) => SUBSCRIPTION_CATEGORY[category] ?? category;
+
+/** Built-in subscription categories. Users can add their own; those are stored by name. */
+export const SUBSCRIPTION_CATEGORY: Record<string, string> = {
   ISP: "WiFi / ISP",
   CLOUD: "Cloud server",
   DOMAIN: "Domain",

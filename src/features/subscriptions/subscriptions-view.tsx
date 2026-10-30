@@ -13,7 +13,7 @@ import { SlideOver } from "@/components/ui/dialog";
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@/components/ui/menu";
 import { EmptyState, PageHeader, StatCard } from "@/components/ui/page";
 import { formatDate, formatMoney, formatMoneyShort } from "@/lib/format";
-import { BILLING_CYCLE, PAYMENT_MODE, SUBSCRIPTION_CATEGORY, SUBSCRIPTION_STATUS, toOptions } from "@/lib/options";
+import { BILLING_CYCLE, PAYMENT_MODE, SUBSCRIPTION_CATEGORY, SUBSCRIPTION_STATUS, subscriptionCategoryLabel, toOptions } from "@/lib/options";
 import { cn } from "@/lib/utils";
 import type { Lookups } from "@/features/employees/queries";
 import { DueLabel } from "./due-label";
@@ -52,7 +52,7 @@ export function SubscriptionsView({ rows, lookups, canWrite }: { rows: Subscript
         ),
         meta: { csv: (r) => r.name },
       },
-      { accessorKey: "category", header: "Category", cell: ({ row }) => SUBSCRIPTION_CATEGORY[row.original.category], meta: { csv: (r) => SUBSCRIPTION_CATEGORY[r.category] } },
+      { accessorKey: "category", header: "Category", cell: ({ row }) => subscriptionCategoryLabel(row.original.category), meta: { csv: (r) => subscriptionCategoryLabel(r.category) } },
       { accessorKey: "vendor", header: "Provider", cell: ({ getValue }) => getValue() ?? "—", meta: { csv: (r) => r.vendor } },
       { accessorKey: "accountId", header: "Account ID", meta: { csv: (r) => r.accountId } },
       {
@@ -172,7 +172,11 @@ export function SubscriptionsView({ rows, lookups, canWrite }: { rows: Subscript
         initialSorting={[{ id: "nextDueDate", desc: false }]}
         initialHidden={{ accountId: false, lastPaidAt: false, paymentMode: false, location: false }}
         filters={[
-          { columnId: "category", label: "Category", options: toOptions(SUBSCRIPTION_CATEGORY) },
+          {
+            columnId: "category",
+            label: "Category",
+            options: [...toOptions(SUBSCRIPTION_CATEGORY), ...lookups.subscriptionCategories.filter((c) => !(c in SUBSCRIPTION_CATEGORY)).map((c) => ({ value: c, label: c }))],
+          },
           { columnId: "billingCycle", label: "Cycle", options: toOptions(BILLING_CYCLE) },
           ...(showInactive ? [{ columnId: "status", label: "Status", options: toOptions(SUBSCRIPTION_STATUS) }] : []),
         ]}

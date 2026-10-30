@@ -13,7 +13,6 @@ import type {
   AssetStatus,
   BillingCycle,
   PaymentMode,
-  SubscriptionCategory,
   SystemCategory,
   TicketPriority,
   TicketSource,
@@ -362,7 +361,7 @@ async function main() {
 
   // Subscriptions + payment history (each payment auto-created an expense)
   type SubSeed = {
-    name: string; category: SubscriptionCategory; vendor: string; accountId: string; plan: string; amount: number; cycle: BillingCycle;
+    name: string; category: string; vendor: string; accountId: string; plan: string; amount: number; cycle: BillingCycle;
     customDays?: number; dueIn: number; history: number; mode: PaymentMode; autoRenew?: boolean; location?: typeof puneF3; dept?: string; loginUrl?: string; status?: "ACTIVE" | "PAUSED" | "CANCELLED";
     variance?: number;
   };

@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { dateStr, id, money, optionalDate, optionalId, optionalMoney, optionalUrl, requiredText, text, optionalFile } from "@/lib/validation";
 
-export const SUBSCRIPTION_CATEGORIES = ["ISP", "CLOUD", "DOMAIN", "SSL", "SOFTWARE", "AMC", "PHONE", "OTHER"] as const;
 export const BILLING_CYCLES = ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "CUSTOM"] as const;
 export const PAYMENT_MODES = ["UPI", "CARD", "BANK_TRANSFER", "CASH", "CHEQUE"] as const;
 
 export const subscriptionSchema = z
   .object({
     name: requiredText("Service name", 160),
-    category: z.enum(SUBSCRIPTION_CATEGORIES),
+    /** Built-in code (ISP, CLOUD, …) or a new category name typed by the user. */
+    category: requiredText("Category", 60),
     vendorId: optionalId,
     accountId: text(120),
     planDetails: text(500),

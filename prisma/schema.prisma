@@ -354,17 +354,6 @@ model StockMovement {
 
 // ─── Subscriptions & licenses ────────────────────────────────────────────────
 
-enum SubscriptionCategory {
-  ISP
-  CLOUD
-  DOMAIN
-  SSL
-  SOFTWARE
-  AMC
-  PHONE
-  OTHER
-}
-
 enum BillingCycle {
   MONTHLY
   QUARTERLY
@@ -390,7 +379,9 @@ enum PaymentMode {
 model Subscription {
   id              String               @id @default(cuid())
   name            String
-  category        SubscriptionCategory
+  /// One of SUBSCRIPTION_CATEGORY's built-in codes (ISP, CLOUD, …) or a
+  /// user-added category name stored as typed.
+  category        String
   vendorId        String?
   accountId       String?
   planDetails     String?

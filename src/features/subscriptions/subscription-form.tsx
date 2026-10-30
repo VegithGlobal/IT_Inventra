@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useWatch } from "react-hook-form";
 import { FormError, InputField, SelectField, TextareaField, useActionForm } from "@/components/forms";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,8 @@ import { BILLING_CYCLE, PAYMENT_MODE, SUBSCRIPTION_CATEGORY, SUBSCRIPTION_STATUS
 import type { Lookups } from "@/features/employees/queries";
 import { createSubscription, updateSubscription } from "./actions";
 import { subscriptionSchema, type SubscriptionInput } from "./schema";
+
+const NEW_CATEGORY = "__new__";
 
 export const emptySubscription = (): SubscriptionInput => ({
   name: "",
@@ -45,7 +48,7 @@ export function SubscriptionForm({
 }: {
   id?: string;
   initial?: SubscriptionInput;
-  lookups: Pick<Lookups, "vendors" | "locations" | "departments">;
+  lookups: Pick<Lookups, "vendors" | "locations" | "departments" | "subscriptionCategories">;
   hasCredentials?: boolean;
   onDone: (r: { id: string }) => void;
 }) {
@@ -57,6 +60,16 @@ export function SubscriptionForm({
   const r = form.register;
   const [cycle, customDays, startDate, nextDueDate] = useWatch({ control: form.control, name: ["billingCycle", "customCycleDays", "startDate", "nextDueDate"] });
   const opts = (list: { id: string; name: string }[]) => list.map((x) => ({ value: x.id, label: x.name }));
+
+  // Built-in categories, then any the team has added, then "add new" — which
+  // swaps the select for a text box; the typed name is saved as the category.
+  const [addingCategory, setAddingCategory] = useState(false);
+  const categoryOptions = [
+    ...toOptions(SUBSCRIPTION_CATEGORY),
+    ...lookups.subscriptionCategories.filter((c) => !(c in SUBSCRIPTION_CATEGORY)).sort().map((c) => ({ value: c, label: c })),
+    { value: NEW_CATEGORY, label: "+ Add new category…" },
+  ];
+  const categoryField = r("category");
 
   // Live preview of the auto-calculated due date when the field is left blank.
   let preview: string | null = null;
@@ -74,7 +87,36 @@ export function SubscriptionForm({
       <FormSection title="Service">
         <FormGrid>
           <InputField label="Service name" required className="sm:col-span-2" placeholder="Airtel Xstream Fiber · Pune HQ" error={errors.name?.message} {...r("name")} />
-          <SelectField label="Category" options={toOptions(SUBSCRIPTION_CATEGORY)} {...r("category")} />
+          {addingCategory ? (
+            <div className="flex flex-col gap-1.5">
+              <InputField label="New category" required autoFocus placeholder="e.g. CCTV cloud storage" error={errors.category?.message} {...categoryField} />
+              <button
+                type="button"
+                className="self-start text-[12.5px] text-fg-muted underline underline-offset-2 hover:text-fg"
+                onClick={() => {
+                  setAddingCategory(false);
+                  form.setValue("category", initial?.category ?? "ISP");
+                }}
+              >
+                Cancel — pick from the list
+              </button>
+            </div>
+          ) : (
+            <SelectField
+              label="Category"
+              options={categoryOptions}
+              error={errors.category?.message}
+              {...categoryField}
+              onChange={(e) => {
+                if (e.target.value === NEW_CATEGORY) {
+                  setAddingCategory(true);
+                  form.setValue("category", "");
+                  return;
+                }
+                return categoryField.onChange(e);
+              }}
+            />
+          )}
           <SelectField label="Provider / vendor" placeholder="—" options={opts(lookups.vendors)} {...r("vendorId")} />
           <InputField label="Account / customer ID" error={errors.accountId?.message} {...r("accountId")} />
           <SelectField label="Status" options={toOptions(SUBSCRIPTION_STATUS)} {...r("status")} />

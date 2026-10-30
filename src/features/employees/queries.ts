@@ -50,7 +50,7 @@ export type EmployeeRow = Awaited<ReturnType<typeof listEmployees>>[number];
 
 /** Lightweight lists for selects across modules. */
 export async function getLookups() {
-  const [departments, locations, vendors, employees, assetTypes] = await Promise.all([
+  const [departments, locations, vendors, employees, assetTypes, subscriptionCategoryRows] = await Promise.all([
     db.department.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     db.location.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     db.vendor.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, category: true } }),
@@ -60,8 +60,10 @@ export async function getLookups() {
       select: { id: true, name: true, employeeCode: true, status: true, departmentId: true, locationId: true },
     }),
     db.assetType.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, prefix: true } }),
+    db.subscription.findMany({ where: { deletedAt: null }, distinct: ["category"], select: { category: true } }),
   ]);
-  return { departments, locations, vendors, employees, assetTypes };
+  const subscriptionCategories = subscriptionCategoryRows.map((r) => r.category);
+  return { departments, locations, vendors, employees, assetTypes, subscriptionCategories };
 }
 export type Lookups = Awaited<ReturnType<typeof getLookups>>;
 
