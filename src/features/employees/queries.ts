@@ -72,7 +72,15 @@ export async function getEmployee(id: string) {
       department: true,
       location: true,
       heldAssets: { where: { deletedAt: null }, include: { type: true }, orderBy: { assetTag: "asc" } },
-      assignments: { include: { asset: { include: { type: true } } }, orderBy: { issuedAt: "desc" } },
+      // An asset transferred away belongs to its new holder only — the full
+      // chain stays on the asset's own page. (transferAsset closes the old
+      // assignment with returnNotes "Transferred"; null kept explicitly
+      // because SQL `<>` drops NULL rows, i.e. every open assignment.)
+      assignments: {
+        where: { OR: [{ returnNotes: null }, { returnNotes: { not: "Transferred" } }] },
+        include: { asset: { include: { type: true } } },
+        orderBy: { issuedAt: "desc" },
+      },
       tickets: { where: { deletedAt: null }, orderBy: { createdAt: "desc" }, take: 20, include: { category: true } },
       licenseSeats: { where: { revokedAt: null, license: { deletedAt: null } }, include: { license: { select: { id: true, name: true, type: true, expiryDate: true } } }, orderBy: { assignedAt: "desc" } },
       accounts: {
