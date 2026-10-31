@@ -17,7 +17,6 @@ import type {
   TicketPriority,
   TicketSource,
   TicketStatus,
-  VendorCategory,
 } from "../src/generated/prisma/enums";
 
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -149,7 +148,7 @@ async function main() {
   );
   const [puneF3, puneF4, serverRoom, mumbai, blr, remote] = locs;
 
-  const vendorRows: { name: string; category: VendorCategory; contactPerson?: string; phone?: string; email?: string; gstin?: string; website?: string; address?: string }[] = [
+  const vendorRows: { name: string; category: string; contactPerson?: string; phone?: string; email?: string; gstin?: string; website?: string; address?: string }[] = [
     { name: "Bharti Airtel Ltd", category: "ISP", contactPerson: "Airtel Business Care", phone: "121", email: "business.care@airtel.com", gstin: "27AAACB2894G1ZP", website: "https://www.airtel.in/business" },
     { name: "Reliance Jio Infocomm", category: "ISP", contactPerson: "JioBusiness Support", phone: "1800-889-9999", email: "care@jio.com", gstin: "27AABCI6363G1ZR", website: "https://www.jio.com/business" },
     { name: "Amazon Web Services India", category: "CLOUD", email: "aws-india-billing@amazon.com", gstin: "27AAJCA6203B1Z2", website: "https://aws.amazon.com" },

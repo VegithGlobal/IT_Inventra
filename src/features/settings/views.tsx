@@ -18,8 +18,8 @@ import { PageHeader } from "@/components/ui/page";
 import { formatDateTime } from "@/lib/format";
 import { categoryColor } from "@/lib/options";
 import { cn, humanize } from "@/lib/utils";
-import { createUser, removeLogo, resetPassword, saveCompany, saveExpenseCategory, saveTicketCategory, updateUser, uploadLogo } from "./actions";
-import { CHART_KEYS, ROLES, companySchema, expenseCategorySchema, resetPasswordSchema, ticketCategorySchema, userCreateSchema, userUpdateSchema, type CompanyInput } from "./schema";
+import { createUser, deleteVendorCategory, removeLogo, resetPassword, saveCompany, saveExpenseCategory, saveTicketCategory, saveVendorCategory, updateUser, uploadLogo } from "./actions";
+import { CHART_KEYS, ROLES, companySchema, expenseCategorySchema, resetPasswordSchema, ticketCategorySchema, userCreateSchema, userUpdateSchema, vendorCategorySchema, type CompanyInput } from "./schema";
 
 const ROLE_INFO: Record<(typeof ROLES)[number], string> = {
   ADMIN: "Everything, including settings, users and backups",
@@ -288,6 +288,8 @@ export function UsersView({ rows, meId }: { rows: UserRow[]; meId: string }) {
 
 export type ExpenseCategoryItem = { id: string; name: string; colorKey: string; isSystem: boolean; used: number };
 export type TicketCategoryItem = { id: string; name: string; used: number };
+/** `isSystem` = one of the built-in VENDOR_CATEGORY codes (not editable); `id` is then the code. */
+export type VendorCategoryItem = { id: string; name: string; isSystem: boolean; used: number };
 
 function ExpenseCategoryForm({ initial, onDone }: { initial: ExpenseCategoryItem | null; onDone: () => void }) {
   const { form, submit, pending, errors, formError } = useActionForm(expenseCategorySchema, saveExpenseCategory, {
@@ -351,7 +353,59 @@ function TicketCategoryForm({ initial, onDone }: { initial: TicketCategoryItem |
   );
 }
 
-export function CategoriesView({ expense, ticket, isAdmin }: { expense: ExpenseCategoryItem[]; ticket: TicketCategoryItem[]; isAdmin: boolean }) {
+function VendorCategoryForm({ initial, onDone }: { initial: VendorCategoryItem | null; onDone: () => void }) {
+  const { form, submit, pending, errors, formError } = useActionForm(vendorCategorySchema, saveVendorCategory, {
+    defaultValues: { id: initial?.id, name: initial?.name ?? "" },
+    successMessage: "Category saved",
+    onSuccess: onDone,
+  });
+  const remover = useActionRunner();
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-5" noValidate>
+      <FormError message={formError} />
+      <InputField
+        label="Name"
+        required
+        placeholder="e.g. Domain & hosting"
+        hint={initial?.used ? `Renaming also updates the ${initial.used} vendor${initial.used === 1 ? "" : "s"} in it` : undefined}
+        error={errors.name?.message}
+        {...form.register("name")}
+      />
+      <div className="flex items-center gap-2 border-t border-line pt-4">
+        {initial && (
+          <Button
+            variant="ghost"
+            className="mr-auto text-danger"
+            disabled={remover.pending || pending}
+            onClick={() => remover.run(() => deleteVendorCategory({ id: initial.id }), "Category deleted", onDone)}
+          >
+            <Trash2 />
+            Delete
+          </Button>
+        )}
+        <Button className={initial ? undefined : "ml-auto"} onClick={onDone}>
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function CategoriesView({
+  expense,
+  ticket,
+  vendor,
+  isAdmin,
+}: {
+  expense: ExpenseCategoryItem[];
+  ticket: TicketCategoryItem[];
+  vendor: VendorCategoryItem[];
+  isAdmin: boolean;
+}) {
+  const [editVendor, setEditVendor] = useState<VendorCategoryItem | "new" | null>(null);
   const [editExpense, setEditExpense] = useState<ExpenseCategoryItem | "new" | null>(null);
   const [editTicket, setEditTicket] = useState<TicketCategoryItem | "new" | null>(null);
   const list = <T extends { id: string; name: string; used: number }>(items: T[], unit: string, onEdit: (i: T) => void, swatch?: (i: T) => string, badge?: (i: T) => boolean) => (
@@ -364,7 +418,7 @@ export function CategoriesView({ expense, ticket, isAdmin }: { expense: ExpenseC
           <span className="text-[12.5px] text-fg-muted tabular">
             {i.used} {unit}
           </span>
-          {isAdmin && (
+          {isAdmin && !(i as { readOnly?: boolean }).readOnly && (
             <Button size="icon-sm" variant="ghost" aria-label={`Edit ${i.name}`} onClick={() => onEdit(i)}>
               <Pencil />
             </Button>
@@ -375,7 +429,7 @@ export function CategoriesView({ expense, ticket, isAdmin }: { expense: ExpenseC
   );
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Categories" description="Expense categories (and their chart colours) and ticket categories." />
+      <PageHeader title="Categories" description="Expense categories (and their chart colours), ticket categories and vendor categories." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title="Expense categories" action={isAdmin && <Button size="sm" onClick={() => setEditExpense("new")}><Plus />Add</Button>} />
@@ -385,12 +439,25 @@ export function CategoriesView({ expense, ticket, isAdmin }: { expense: ExpenseC
           <CardHeader title="Ticket categories" action={isAdmin && <Button size="sm" onClick={() => setEditTicket("new")}><Plus />Add</Button>} />
           {list(ticket, "tickets", (i) => setEditTicket(i))}
         </Card>
+        <Card>
+          <CardHeader title="Vendor categories" action={isAdmin && <Button size="sm" onClick={() => setEditVendor("new")}><Plus />Add</Button>} />
+          {list(
+            vendor.map((v) => ({ ...v, readOnly: v.isSystem })),
+            "vendors",
+            (i) => setEditVendor(i),
+            undefined,
+            (i) => i.isSystem,
+          )}
+        </Card>
       </div>
       <Modal open={!!editExpense} onOpenChange={(o) => !o && setEditExpense(null)} title={editExpense === "new" ? "New expense category" : "Edit expense category"} size="sm">
         {editExpense && <ExpenseCategoryForm initial={editExpense === "new" ? null : editExpense} onDone={() => setEditExpense(null)} />}
       </Modal>
       <Modal open={!!editTicket} onOpenChange={(o) => !o && setEditTicket(null)} title={editTicket === "new" ? "New ticket category" : "Edit ticket category"} size="sm">
         {editTicket && <TicketCategoryForm initial={editTicket === "new" ? null : editTicket} onDone={() => setEditTicket(null)} />}
+      </Modal>
+      <Modal open={!!editVendor} onOpenChange={(o) => !o && setEditVendor(null)} title={editVendor === "new" ? "New vendor category" : "Edit vendor category"} size="sm">
+        {editVendor && <VendorCategoryForm initial={editVendor === "new" ? null : editVendor} onDone={() => setEditVendor(null)} />}
       </Modal>
     </div>
   );

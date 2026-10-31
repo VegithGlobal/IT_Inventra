@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SlideOver } from "@/components/ui/dialog";
 import { EmptyState, PageHeader } from "@/components/ui/page";
 import { formatMoney } from "@/lib/format";
-import { VENDOR_CATEGORY, toOptions } from "@/lib/options";
+import { vendorCategoryLabel, vendorCategoryOptions } from "@/lib/options";
 import type { VendorRow } from "./queries";
 import { VendorForm } from "./vendor-form";
 
@@ -29,8 +29,8 @@ const columns: ColumnDef<VendorRow, unknown>[] = [
   {
     accessorKey: "category",
     header: "Category",
-    cell: ({ row }) => <Badge>{VENDOR_CATEGORY[row.original.category]}</Badge>,
-    meta: { csv: (r) => VENDOR_CATEGORY[r.category] },
+    cell: ({ row }) => <Badge>{vendorCategoryLabel(row.original.category)}</Badge>,
+    meta: { csv: (r) => vendorCategoryLabel(r.category) },
   },
   {
     accessorKey: "contactPerson",
@@ -56,7 +56,7 @@ const columns: ColumnDef<VendorRow, unknown>[] = [
   },
 ];
 
-export function VendorsView({ rows, canWrite }: { rows: VendorRow[]; canWrite: boolean }) {
+export function VendorsView({ rows, categories, canWrite }: { rows: VendorRow[]; categories: string[]; canWrite: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useQueryFlag("new");
   return (
@@ -82,7 +82,7 @@ export function VendorsView({ rows, canWrite }: { rows: VendorRow[]; canWrite: b
         onRowClick={(r) => router.push(`/vendors/${r.id}`)}
         initialHidden={{ phone: false, email: false, gstin: false }}
         initialSorting={[{ id: "totalSpend", desc: true }]}
-        filters={[{ columnId: "category", label: "Category", options: toOptions(VENDOR_CATEGORY) }]}
+        filters={[{ columnId: "category", label: "Category", options: vendorCategoryOptions(categories) }]}
         empty={
           <EmptyState
             icon={Building2}
@@ -93,7 +93,7 @@ export function VendorsView({ rows, canWrite }: { rows: VendorRow[]; canWrite: b
         }
       />
       <SlideOver open={open && canWrite} onOpenChange={setOpen} title="New vendor">
-        <VendorForm onDone={(id) => router.push(`/vendors/${id}`)} />
+        <VendorForm categories={categories} onDone={(id) => router.push(`/vendors/${id}`)} />
       </SlideOver>
     </div>
   );

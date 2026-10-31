@@ -14,7 +14,6 @@ import type {
   TicketPriority,
   TicketSource,
   TicketStatus,
-  VendorCategory,
 } from "@/generated/prisma/enums";
 
 type Meta = { label: string; tone: Tone };
@@ -45,7 +44,8 @@ export const EMPLOYEE_STATUS = opts<EmployeeStatus>({
   EXITED: { label: "Exited", tone: "neutral" },
 });
 
-export const VENDOR_CATEGORY: Record<VendorCategory, string> = {
+/** Built-in vendor categories. More can be added in Settings → Categories; those are stored by name. */
+export const VENDOR_CATEGORY: Record<string, string> = {
   ISP: "ISP",
   HARDWARE: "Hardware",
   CLOUD: "Cloud",
@@ -53,6 +53,14 @@ export const VENDOR_CATEGORY: Record<VendorCategory, string> = {
   SOFTWARE: "Software",
   OTHER: "Other",
 };
+
+export const vendorCategoryLabel = (category: string) => VENDOR_CATEGORY[category] ?? category;
+
+/** Built-in options first, then the ones added in Settings. */
+export const vendorCategoryOptions = (custom: string[]) => [
+  ...Object.entries(VENDOR_CATEGORY).map(([value, label]) => ({ value, label })),
+  ...custom.map((c) => ({ value: c, label: c })),
+];
 
 export const subscriptionCategoryLabel = (category: string) => SUBSCRIPTION_CATEGORY[category] ?? category;
 

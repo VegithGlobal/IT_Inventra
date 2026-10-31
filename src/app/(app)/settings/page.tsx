@@ -20,7 +20,7 @@ const GROUPS: { label: string; items: { title: string; description: string; href
       { title: "Departments", description: "Engineering, Sales, Finance…", href: "/settings/departments", icon: Network },
       { title: "Locations", description: "Offices, floors and rooms", href: "/settings/locations", icon: MapPin },
       { title: "Asset types", description: "Tag prefixes and depreciation", href: "/settings/asset-types", icon: Shapes },
-      { title: "Categories", description: "Expense and ticket categories", href: "/settings/categories", icon: Tags },
+      { title: "Categories", description: "Expense, ticket and vendor categories", href: "/settings/categories", icon: Tags },
     ],
   },
   {

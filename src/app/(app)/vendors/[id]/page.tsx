@@ -8,17 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { PageHeader, PageSkeleton, StatCard } from "@/components/ui/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getVendor } from "@/features/vendors/queries";
+import { getVendor, listVendorCategories } from "@/features/vendors/queries";
 import { VendorActions } from "@/features/vendors/vendor-actions";
 import { formatDate, formatMoney } from "@/lib/format";
-import { ASSET_STATUS, BILLING_CYCLE, DOCUMENT_TYPE, SUBSCRIPTION_STATUS, VENDOR_CATEGORY } from "@/lib/options";
+import { ASSET_STATUS, BILLING_CYCLE, DOCUMENT_TYPE, SUBSCRIPTION_STATUS, vendorCategoryLabel } from "@/lib/options";
 import { canWrite, requireUser } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Vendor" };
 
 async function Content({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [user, data] = await Promise.all([requireUser(), getVendor(id)]);
+  const [user, data, categories] = await Promise.all([requireUser(), getVendor(id), listVendorCategories()]);
   if (!data) notFound();
   const { vendor: v, totalSpend, expenseCount } = data;
 
@@ -28,7 +28,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         title={v.name}
         description={
           <span className="flex items-center gap-2">
-            <Badge>{VENDOR_CATEGORY[v.category]}</Badge>
+            <Badge>{vendorCategoryLabel(v.category)}</Badge>
             {v.gstin && <span className="font-mono text-[12.5px]">GSTIN {v.gstin}</span>}
           </span>
         }
@@ -36,6 +36,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
           canWrite(user.role) && (
             <VendorActions
               id={v.id}
+              categories={categories}
               initial={{
                 name: v.name,
                 category: v.category,

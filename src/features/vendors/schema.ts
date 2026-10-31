@@ -3,7 +3,8 @@ import { optionalEmail, optionalUrl, requiredText, text } from "@/lib/validation
 
 export const vendorSchema = z.object({
   name: requiredText("Name", 160),
-  category: z.enum(["ISP", "HARDWARE", "CLOUD", "SERVICE_CENTER", "SOFTWARE", "OTHER"]),
+  /** Built-in code (ISP, HARDWARE, …) or a category name added in Settings. */
+  category: requiredText("Category", 60),
   contactPerson: text(120),
   phone: text(40),
   email: optionalEmail,

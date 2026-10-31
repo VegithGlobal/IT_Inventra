@@ -77,19 +77,12 @@ model Location {
   subscriptions  Subscription[]
 }
 
-enum VendorCategory {
-  ISP
-  HARDWARE
-  CLOUD
-  SERVICE_CENTER
-  SOFTWARE
-  OTHER
-}
-
 model Vendor {
   id            String         @id @default(cuid())
   name          String
-  category      VendorCategory @default(OTHER)
+  /// A built-in code from VENDOR_CATEGORY (ISP, HARDWARE, …) or the name of a
+  /// VendorCategory added in Settings → Categories.
+  category      String         @default("OTHER")
   contactPerson String?
   phone         String?
   email         String?
@@ -681,6 +674,16 @@ model Document {
 }
 
 // ─── Tickets ─────────────────────────────────────────────────────────────────
+
+/// Vendor categories added in Settings, on top of the built-in VENDOR_CATEGORY
+/// codes. Vendors store the name, so a rename updates their rows too.
+model VendorCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
 model TicketCategory {
   id        String   @id @default(cuid())

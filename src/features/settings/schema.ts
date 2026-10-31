@@ -50,6 +50,11 @@ export const expenseCategorySchema = z.object({
   colorKey: z.enum(CHART_KEYS),
 });
 
+export const vendorCategorySchema = z.object({
+  id: z.string().optional(),
+  name: requiredText("Name", 60),
+});
+
 export const ticketCategorySchema = z.object({
   id: z.string().optional(),
   name: requiredText("Name", 60),

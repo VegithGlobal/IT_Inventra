@@ -4,10 +4,11 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { ActionError, createAction } from "@/lib/action";
+import { VENDOR_CATEGORY } from "@/lib/options";
 import type { Tx } from "@/lib/db";
 import { saveUpload, storage, UploadError } from "@/lib/storage";
 import { optionalFile, orNull } from "@/lib/validation";
-import { companySchema, expenseCategorySchema, resetPasswordSchema, ticketCategorySchema, userCreateSchema, userUpdateSchema } from "./schema";
+import { companySchema, expenseCategorySchema, resetPasswordSchema, ticketCategorySchema, userCreateSchema, userUpdateSchema, vendorCategorySchema } from "./schema";
 
 const ADMIN = ["ADMIN" as const];
 
@@ -166,6 +167,48 @@ export const saveTicketCategory = createAction({
     if (!before) throw new ActionError("Category not found.");
     const after = await tx.ticketCategory.update({ where: { id }, data: { name } });
     await audit({ action: "UPDATE", entityType: "TicketCategory", entityId: id, entityLabel: name, before, after });
+    return { id };
+  },
+});
+
+export const saveVendorCategory = createAction({
+  schema: vendorCategorySchema,
+  roles: ADMIN,
+  handler: async ({ id, name }, { tx, audit }) => {
+    // Vendors store a built-in's code (ISP) and a custom category's name, so a
+    // custom name may not repeat a built-in code or label.
+    const clash = Object.entries(VENDOR_CATEGORY).some(([code, label]) => [code, label].some((x) => x.toLowerCase() === name.toLowerCase()));
+    if (clash) throw new ActionError("That is already a built-in category.", { name: "Already built in" });
+    const duplicate = await tx.vendorCategory.findFirst({ where: { name: { equals: name, mode: "insensitive" }, ...(id ? { NOT: { id } } : {}) } });
+    if (duplicate) throw new ActionError("A category with this name already exists.", { name: "Already exists" });
+    if (!id) {
+      const max = await tx.vendorCategory.aggregate({ _max: { sortOrder: true } });
+      const created = await tx.vendorCategory.create({ data: { name, sortOrder: (max._max.sortOrder ?? 0) + 1 } });
+      await audit({ action: "CREATE", entityType: "VendorCategory", entityId: created.id, entityLabel: name, after: created });
+      return { id: created.id };
+    }
+    const before = await tx.vendorCategory.findUnique({ where: { id } });
+    if (!before) throw new ActionError("Category not found.");
+    const after = await tx.vendorCategory.update({ where: { id }, data: { name } });
+    // Vendors hold the name, so carry the rename over to them.
+    if (before.name !== name) await tx.vendor.updateMany({ where: { category: before.name }, data: { category: name } });
+    await audit({ action: "UPDATE", entityType: "VendorCategory", entityId: id, entityLabel: name, before, after });
+    return { id };
+  },
+});
+
+export const deleteVendorCategory = createAction({
+  schema: z.object({ id: z.string().min(1) }),
+  roles: ADMIN,
+  handler: async ({ id }, { tx, audit }) => {
+    const before = await tx.vendorCategory.findUnique({ where: { id } });
+    if (!before) throw new ActionError("Category not found.");
+    const used = await tx.vendor.count({ where: { category: before.name, deletedAt: null } });
+    if (used) throw new ActionError(`${used} vendor${used === 1 ? " uses" : "s use"} this category. Move ${used === 1 ? "it" : "them"} to another category first.`);
+    // Archived vendors fall back to Other rather than pointing at a deleted name.
+    await tx.vendor.updateMany({ where: { category: before.name }, data: { category: "OTHER" } });
+    await tx.vendorCategory.delete({ where: { id } });
+    await audit({ action: "DELETE", entityType: "VendorCategory", entityId: id, entityLabel: before.name, before });
     return { id };
   },
 });

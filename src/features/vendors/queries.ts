@@ -2,6 +2,12 @@ import "server-only";
 import { db } from "@/lib/db";
 import { toNumber } from "@/lib/format";
 
+/** Names of the vendor categories added in Settings, in their set order. */
+export async function listVendorCategories() {
+  const rows = await db.vendorCategory.findMany({ orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } });
+  return rows.map((r) => r.name);
+}
+
 export async function listVendors() {
   const [vendors, spend] = await Promise.all([
     db.vendor.findMany({

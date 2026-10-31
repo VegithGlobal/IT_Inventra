@@ -3,7 +3,7 @@
 import { FormError, InputField, SelectField, TextareaField, useActionForm } from "@/components/forms";
 import { Button } from "@/components/ui/button";
 import { FormGrid } from "@/components/ui/field";
-import { VENDOR_CATEGORY, toOptions } from "@/lib/options";
+import { vendorCategoryOptions } from "@/lib/options";
 import { createVendor, updateVendor } from "./actions";
 import { vendorSchema, type VendorInput } from "./schema";
 
@@ -19,7 +19,18 @@ export const emptyVendor: VendorInput = {
   notes: "",
 };
 
-export function VendorForm({ id, initial = emptyVendor, onDone }: { id?: string; initial?: VendorInput; onDone: (id: string) => void }) {
+export function VendorForm({
+  id,
+  initial = emptyVendor,
+  categories,
+  onDone,
+}: {
+  id?: string;
+  initial?: VendorInput;
+  /** Categories added in Settings → Categories. */
+  categories: string[];
+  onDone: (id: string) => void;
+}) {
   const { form, submit, pending, errors, formError } = useActionForm(
     vendorSchema,
     (values) => (id ? updateVendor({ id, data: values }) : createVendor(values)),
@@ -31,7 +42,7 @@ export function VendorForm({ id, initial = emptyVendor, onDone }: { id?: string;
       <FormError message={formError} />
       <FormGrid>
         <InputField label="Name" required className="sm:col-span-2" error={errors.name?.message} {...r("name")} />
-        <SelectField label="Category" options={toOptions(VENDOR_CATEGORY)} {...r("category")} />
+        <SelectField label="Category" hint="Add more in Settings → Categories" options={vendorCategoryOptions(categories)} error={errors.category?.message} {...r("category")} />
         <InputField label="GSTIN" placeholder="27AAACB2894G1ZP" error={errors.gstin?.message} {...r("gstin")} />
         <InputField label="Contact person" error={errors.contactPerson?.message} {...r("contactPerson")} />
         <InputField label="Phone" type="tel" error={errors.phone?.message} {...r("phone")} />

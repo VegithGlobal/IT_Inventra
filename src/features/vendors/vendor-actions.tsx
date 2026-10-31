@@ -7,7 +7,7 @@ import { archiveVendor } from "./actions";
 import type { VendorInput } from "./schema";
 import { VendorForm } from "./vendor-form";
 
-export function VendorActions({ id, initial }: { id: string; initial: VendorInput }) {
+export function VendorActions({ id, initial, categories }: { id: string; initial: VendorInput; categories: string[] }) {
   return (
     <>
       <ConfirmAction
@@ -23,7 +23,7 @@ export function VendorActions({ id, initial }: { id: string; initial: VendorInpu
         redirectTo="/vendors"
         danger
       />
-      <EditSheet title="Edit vendor">{(close) => <VendorForm id={id} initial={initial} onDone={close} />}</EditSheet>
+      <EditSheet title="Edit vendor">{(close) => <VendorForm id={id} initial={initial} categories={categories} onDone={close} />}</EditSheet>
     </>
   );
 }
