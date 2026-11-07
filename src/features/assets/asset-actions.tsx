@@ -50,11 +50,17 @@ export function AssetActions({
           </Button>
         </MenuTrigger>
         <MenuContent>
-          <MenuItem asChild>
-            <Link href={`/print/labels?ids=${asset.id}`} target="_blank">
-              <Printer /> Print QR label
-            </Link>
-          </MenuItem>
+          {openAssignment ? (
+            <MenuItem asChild>
+              <Link href={`/print/handover/${openAssignment.id}`} target="_blank">
+                <Printer /> Print issuance form
+              </Link>
+            </MenuItem>
+          ) : (
+            <MenuItem disabled>
+              <Printer /> Print issuance form
+            </MenuItem>
+          )}
           <MenuItem danger disabled={!!openAssignment} onSelect={() => setDialog("archive")}>
             <Archive /> Archive asset
           </MenuItem>
