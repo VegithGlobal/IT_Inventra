@@ -33,7 +33,7 @@ async function attachForm(
         type: kind,
         title: `${kind === "HANDOVER_FORM" ? "Signed handover form" : "Signed return form"} · ${link.label}`,
         ...stored,
-        assetId: link.assetId,
+        assets: { connect: { id: link.assetId } },
         employeeId: link.employeeId,
         assignmentId: link.assignmentId,
         uploadedById: ctx.user.id,

@@ -108,7 +108,8 @@ export const archiveAsset = createAction({
 });
 
 /**
- * Permanent delete (admin only). Removes the assets with their assignments, repairs and documents.
+ * Permanent delete (admin only). Removes the assets with their assignments, repairs and documents
+ * (an invoice shared with other assets is kept and just unlinked).
  * Expenses stay (they're real spend) but lose the link; tickets, reminders and license seats are unlinked too.
  */
 const deleteAssetsTx = createAction({
@@ -119,7 +120,14 @@ const deleteAssetsTx = createAction({
     if (!assets.length) throw new ActionError("Asset not found.");
     const assetIds = assets.map((a) => a.id);
     const repairIds = (await tx.maintenanceRecord.findMany({ where: { assetId: { in: assetIds } }, select: { id: true } })).map((m) => m.id);
-    const docWhere = { OR: [{ assetId: { in: assetIds } }, { assignment: { assetId: { in: assetIds } } }, { maintenanceId: { in: repairIds } }] };
+    const docWhere = {
+      OR: [
+        // Only documents no other asset, expense or subscription still uses; shared invoices just lose the link.
+        { assets: { some: { id: { in: assetIds } }, every: { id: { in: assetIds } } }, expenseId: null, subscriptionId: null },
+        { assignment: { assetId: { in: assetIds } } },
+        { maintenanceId: { in: repairIds } },
+      ],
+    };
     const fileKeys = (await tx.document.findMany({ where: docWhere, select: { fileKey: true } })).map((d) => d.fileKey);
 
     await tx.document.deleteMany({ where: docWhere });

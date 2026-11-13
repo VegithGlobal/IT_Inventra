@@ -98,7 +98,7 @@ export const addTicketAttachment = createAction({
     }
     try {
       const doc = await tx.document.create({
-        data: { type: file.type.startsWith("image/") ? "PHOTO" : "OTHER", title: note || file.name, ...stored, ticketId, assetId: ticket.assetId, uploadedById: user.id },
+        data: { type: file.type.startsWith("image/") ? "PHOTO" : "OTHER", title: note || file.name, ...stored, ticketId, ...(ticket.assetId && { assets: { connect: { id: ticket.assetId } } }), uploadedById: user.id },
       });
       await tx.ticketComment.create({ data: { ticketId, authorId: user.id, kind: "ATTACHMENT", body: doc.title, meta: { documentId: doc.id, mimeType: doc.mimeType } } });
       await audit({ action: "CREATE", entityType: "Document", entityId: doc.id, entityLabel: `${ticket.ticketNumber} · ${doc.title}`, after: doc });

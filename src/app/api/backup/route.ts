@@ -37,7 +37,7 @@ export async function GET(request: Request) {
     employeeAccounts: await db.employeeAccount.findMany(), // passwordEnc stays AES-256 ciphertext
     expenseCategories: await db.expenseCategory.findMany(),
     expenses: await db.expense.findMany(),
-    documents: await db.document.findMany(),
+    documents: (await db.document.findMany({ include: { assets: { select: { id: true } } } })).map(({ assets, ...d }) => ({ ...d, assetIds: assets.map((a) => a.id) })),
     ticketCategories: await db.ticketCategory.findMany(),
     tickets: await db.ticket.findMany(),
     ticketComments: await db.ticketComment.findMany(),

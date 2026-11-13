@@ -17,7 +17,6 @@ function metaData(v: DocumentMetaInput) {
     vendorId: orNull(v.vendorId),
     amount: toDecimalOrNull(v.amount),
     notes: orNull(v.notes),
-    assetId: orNull(v.assetId),
     subscriptionId: orNull(v.subscriptionId),
     expenseId: orNull(v.expenseId),
     ticketId: orNull(v.ticketId),
@@ -35,7 +34,9 @@ export const uploadDocument = createAction({
       throw e;
     }
     try {
-      const doc = await tx.document.create({ data: { ...metaData(meta), ...stored, uploadedById: user.id } });
+      const doc = await tx.document.create({
+        data: { ...metaData(meta), ...stored, uploadedById: user.id, assets: { connect: meta.assetIds.map((id) => ({ id })) } },
+      });
       await audit({ action: "CREATE", entityType: "Document", entityId: doc.id, entityLabel: doc.title, after: doc });
       return { id: doc.id };
     } catch (e) {
@@ -50,7 +51,7 @@ export const updateDocument = createAction({
   handler: async ({ id, data }, { tx, audit }) => {
     const before = await tx.document.findFirst({ where: { id, deletedAt: null } });
     if (!before) throw new ActionError("Document not found.");
-    const after = await tx.document.update({ where: { id }, data: metaData(data) });
+    const after = await tx.document.update({ where: { id }, data: { ...metaData(data), assets: { set: data.assetIds.map((assetId) => ({ id: assetId })) } } });
     await audit({ action: "UPDATE", entityType: "Document", entityId: id, entityLabel: after.title, before, after });
     return { id };
   },

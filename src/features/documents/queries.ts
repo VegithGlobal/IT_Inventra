@@ -7,7 +7,7 @@ import type { DocumentMetaInput } from "./schema";
 
 const linkInclude = {
   vendor: { select: { id: true, name: true } },
-  asset: { select: { id: true, assetTag: true, name: true } },
+  assets: { select: { id: true, assetTag: true, name: true }, orderBy: { assetTag: "asc" } },
   subscription: { select: { id: true, name: true } },
   expense: { select: { id: true, description: true } },
   ticket: { select: { id: true, ticketNumber: true, title: true } },
@@ -19,7 +19,7 @@ const linkInclude = {
 export function toDocumentRow(
   d: Document & {
     vendor?: { id: string; name: string } | null;
-    asset?: { id: string; assetTag: string; name: string } | null;
+    assets?: { id: string; assetTag: string; name: string }[];
     subscription?: { id: string; name: string } | null;
     expense?: { id: string; description: string } | null;
     ticket?: { id: string; ticketNumber: string; title: string } | null;
@@ -28,7 +28,7 @@ export function toDocumentRow(
   },
 ) {
   const links: { label: string; href: string }[] = [];
-  if (d.asset) links.push({ label: d.asset.assetTag, href: `/assets/${d.asset.id}` });
+  for (const a of d.assets ?? []) links.push({ label: a.assetTag, href: `/assets/${a.id}` });
   if (d.subscription) links.push({ label: d.subscription.name, href: `/subscriptions/${d.subscription.id}` });
   if (d.expense) links.push({ label: d.expense.description, href: `/expenses?focus=${d.expense.id}` });
   if (d.ticket) links.push({ label: d.ticket.ticketNumber, href: `/tickets/${d.ticket.id}` });
@@ -56,7 +56,7 @@ export function toDocumentRow(
       vendorId: d.vendorId ?? "",
       amount: d.amount?.toString() ?? "",
       notes: d.notes ?? "",
-      assetId: d.assetId ?? "",
+      assetIds: (d.assets ?? []).map((a) => a.id),
       subscriptionId: d.subscriptionId ?? "",
       expenseId: d.expenseId ?? "",
       ticketId: d.ticketId ?? "",
@@ -70,8 +70,12 @@ export async function listDocuments() {
   return docs.map(toDocumentRow);
 }
 
-export async function getDocumentsFor(where: { assetId?: string; subscriptionId?: string; expenseId?: string }) {
-  const docs = await db.document.findMany({ where: { ...where, deletedAt: null }, include: linkInclude, orderBy: { createdAt: "desc" } });
+export async function getDocumentsFor({ assetId, ...where }: { assetId?: string; subscriptionId?: string; expenseId?: string }) {
+  const docs = await db.document.findMany({
+    where: { ...where, ...(assetId && { assets: { some: { id: assetId } } }), deletedAt: null },
+    include: linkInclude,
+    orderBy: { createdAt: "desc" },
+  });
   return docs.map(toDocumentRow);
 }
 

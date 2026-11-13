@@ -213,7 +213,7 @@ model Asset {
   department    Department?         @relation(fields: [departmentId], references: [id])
   currentHolder Employee?           @relation(fields: [currentHolderId], references: [id])
   assignments   AssetAssignment[]
-  documents     Document[]
+  documents     Document[]          @relation("DocumentAssets")
   expenses      Expense[]
   licenseSeats  LicenseSeat[]
   maintenance   MaintenanceRecord[]
@@ -646,7 +646,6 @@ model Document {
   vendorId       String?
   amount         Decimal?     @db.Decimal(14, 2)
   notes          String?
-  assetId        String?
   subscriptionId String?
   expenseId      String?
   ticketId       String?
@@ -659,7 +658,8 @@ model Document {
   deletedAt      DateTime?
 
   vendor       Vendor?            @relation(fields: [vendorId], references: [id])
-  asset        Asset?             @relation(fields: [assetId], references: [id])
+  /// One invoice can cover several assets (e.g. a bulk laptop purchase).
+  assets       Asset[]            @relation("DocumentAssets")
   subscription Subscription?      @relation(fields: [subscriptionId], references: [id])
   expense      Expense?           @relation(fields: [expenseId], references: [id])
   ticket       Ticket?            @relation(fields: [ticketId], references: [id])

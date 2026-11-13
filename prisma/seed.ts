@@ -462,11 +462,13 @@ async function main() {
     },
   ];
   for (const d of docs) {
+    const { assetId, ...link } = d.link;
     const file = await storePdf(d.lines);
     await db.document.create({
       data: {
         type: d.type, title: d.title, ...file, fileName: `${d.title.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.pdf`, invoiceNumber: d.invoiceNumber ?? null,
-        invoiceDate: d.date, vendorId: d.vendorId, amount: d.amount ? money(d.amount) : null, uploadedById: admin.id, ...d.link,
+        invoiceDate: d.date, vendorId: d.vendorId, amount: d.amount ? money(d.amount) : null, uploadedById: admin.id, ...link,
+        ...(assetId && { assets: { connect: { id: assetId } } }),
       },
     });
   }

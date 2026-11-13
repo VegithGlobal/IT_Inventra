@@ -1,10 +1,12 @@
 "use client";
 
-import { Archive, Download, ExternalLink, FileImage, FileText, Pencil, Upload } from "lucide-react";
+import { Archive, Download, ExternalLink, FileImage, FileText, Pencil, Search, Upload, X } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useWatch } from "react-hook-form";
 import { FormError, InputField, SelectField, TextareaField, useActionForm, useActionRunner, type Option } from "@/components/forms";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { Modal, SlideOver } from "@/components/ui/dialog";
 import { DetailList } from "@/components/ui/card";
@@ -16,9 +18,10 @@ import { archiveDocument, updateDocument, uploadDocument } from "./actions";
 import type { DocumentLinkOptions, DocumentRow } from "./queries";
 import { ACCEPTED_UPLOADS, documentMetaSchema, type DocumentMetaInput } from "./schema";
 
-export type DocLink = Partial<Pick<DocumentMetaInput, "assetId" | "subscriptionId" | "expenseId" | "ticketId">>;
+/** The record a document list belongs to (asset page, subscription page...). */
+export type DocLink = { assetId?: string } & Partial<Pick<DocumentMetaInput, "subscriptionId" | "expenseId" | "ticketId">>;
 
-const emptyMeta = (link: DocLink, defaults?: Partial<DocumentMetaInput>): DocumentMetaInput => ({
+const emptyMeta = ({ assetId, ...link }: DocLink, defaults?: Partial<DocumentMetaInput>): DocumentMetaInput => ({
   type: "INVOICE",
   title: "",
   invoiceNumber: "",
@@ -26,13 +29,57 @@ const emptyMeta = (link: DocLink, defaults?: Partial<DocumentMetaInput>): Docume
   vendorId: "",
   amount: "",
   notes: "",
-  assetId: "",
   subscriptionId: "",
   expenseId: "",
   ticketId: "",
   ...defaults,
   ...link,
+  assetIds: assetId ? [assetId] : (defaults?.assetIds ?? []),
 });
+
+/** Searchable checkbox list: one invoice can cover several assets. */
+function AssetPicker({ options, value, onChange, error }: { options: Option[]; value: string[]; onChange: (v: string[]) => void; error?: string }) {
+  const [q, setQ] = useState("");
+  const selected = new Set(value);
+  const shown = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? options.filter((o) => o.label.toLowerCase().includes(s)) : options;
+  }, [options, q]);
+  const toggle = (id: string, on: boolean) => onChange(on ? [...value, id] : value.filter((v) => v !== id));
+  return (
+    <Field label="Linked assets" error={error} hint={value.length ? `${value.length} selected` : "Tick every asset this invoice covers"} className="sm:col-span-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {value.map((id) => (
+            <span key={id} className="inline-flex max-w-full items-center gap-1 rounded-md bg-subtle py-0.5 pr-1 pl-2 text-[12.5px] text-fg">
+              <span className="truncate">{options.find((o) => o.value === id)?.label ?? id}</span>
+              <button type="button" onClick={() => toggle(id, false)} aria-label="Remove" className="rounded p-0.5 text-fg-muted hover:bg-line hover:text-fg">
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="rounded-md border border-line">
+        <div className="relative border-b border-line">
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-fg-muted" aria-hidden />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tag or model" aria-label="Search assets" className="border-0 pl-9 shadow-none" />
+        </div>
+        <ul className="max-h-52 overflow-y-auto p-1">
+          {shown.map((o) => (
+            <li key={o.value}>
+              <label className="flex h-8 cursor-pointer items-center gap-2 rounded px-2 text-[13px] text-fg hover:bg-subtle">
+                <Checkbox checked={selected.has(o.value)} onCheckedChange={(v) => toggle(o.value, !!v)} />
+                <span className="truncate">{o.label}</span>
+              </label>
+            </li>
+          ))}
+          {shown.length === 0 && <li className="px-2 py-3 text-[13px] text-fg-muted">No assets match your search.</li>}
+        </ul>
+      </div>
+    </Field>
+  );
+}
 
 export function FileIcon({ mime, className }: { mime: string; className?: string }) {
   const Icon = mime.startsWith("image/") ? FileImage : FileText;
@@ -46,6 +93,7 @@ function DocumentForm({
   initial,
   vendors,
   linkOptions,
+  assetOptions,
   lockedLink,
   onDone,
 }: {
@@ -54,6 +102,8 @@ function DocumentForm({
   initial: DocumentMetaInput;
   vendors: Option[];
   linkOptions?: DocumentLinkOptions;
+  /** Asset choices when the other link pickers are hidden (e.g. on an asset page). */
+  assetOptions?: Option[];
   lockedLink: boolean;
   onDone: () => void;
 }) {
@@ -64,13 +114,15 @@ function DocumentForm({
     async (values) => {
       if (mode === "edit" && id) return updateDocument({ id, data: values });
       const fd = new FormData();
-      for (const [k, v] of Object.entries(values)) fd.set(k, v);
+      for (const [k, v] of Object.entries(values)) fd.set(k, Array.isArray(v) ? v.join(",") : v);
       if (file) fd.set("file", file);
       return uploadDocument(fd);
     },
     { defaultValues: initial, successMessage: mode === "edit" ? "Document updated" : "Document uploaded", onSuccess: onDone },
   );
   const r = form.register;
+  const assetChoices = linkOptions?.assets ?? assetOptions;
+  const assetIds = (useWatch({ control: form.control, name: "assetIds" }) ?? []) as string[];
 
   return (
     <form
@@ -108,11 +160,22 @@ function DocumentForm({
         <InputField label="Invoice date" type="date" error={errors.invoiceDate?.message} {...r("invoiceDate")} />
         <InputField label="Amount (₹)" inputMode="decimal" error={errors.amount?.message} {...r("amount")} />
       </FormGrid>
-      {!lockedLink && linkOptions && (
+      {(assetChoices || (!lockedLink && linkOptions)) && (
         <FormGrid>
-          <SelectField label="Linked asset" placeholder="—" options={linkOptions.assets} {...r("assetId")} />
-          <SelectField label="Linked subscription" placeholder="—" options={linkOptions.subscriptions} {...r("subscriptionId")} />
-          <SelectField label="Linked expense" placeholder="—" className="sm:col-span-2" options={linkOptions.expenses} {...r("expenseId")} />
+          {assetChoices && (
+            <AssetPicker
+              options={assetChoices}
+              value={assetIds}
+              onChange={(v) => form.setValue("assetIds", v, { shouldDirty: true })}
+              error={errors.assetIds?.message}
+            />
+          )}
+          {!lockedLink && linkOptions && (
+            <>
+              <SelectField label="Linked subscription" placeholder="—" options={linkOptions.subscriptions} {...r("subscriptionId")} />
+              <SelectField label="Linked expense" placeholder="—" options={linkOptions.expenses} {...r("expenseId")} />
+            </>
+          )}
         </FormGrid>
       )}
       <TextareaField label="Notes" rows={2} error={errors.notes?.message} {...r("notes")} />
@@ -132,6 +195,7 @@ export function UploadDialog({
   vendors,
   link = {},
   linkOptions,
+  assetOptions,
   defaults,
 }: {
   open: boolean;
@@ -139,6 +203,7 @@ export function UploadDialog({
   vendors: Option[];
   link?: DocLink;
   linkOptions?: DocumentLinkOptions;
+  assetOptions?: Option[];
   defaults?: Partial<DocumentMetaInput>;
 }) {
   const locked = Object.values(link).some(Boolean);
@@ -150,6 +215,7 @@ export function UploadDialog({
           initial={emptyMeta(link, defaults)}
           vendors={vendors}
           linkOptions={linkOptions}
+          assetOptions={assetOptions}
           lockedLink={locked}
           onDone={() => onOpenChange(false)}
         />
@@ -164,12 +230,14 @@ export function DocumentPreview({
   onOpenChange,
   vendors,
   linkOptions,
+  assetOptions,
   canWrite,
 }: {
   doc: DocumentRow | null;
   onOpenChange: (o: boolean) => void;
   vendors: Option[];
   linkOptions?: DocumentLinkOptions;
+  assetOptions?: Option[];
   canWrite: boolean;
 }) {
   const [editing, setEditing] = useState(false);
@@ -221,7 +289,16 @@ export function DocumentPreview({
     >
       {doc &&
         (editing ? (
-          <DocumentForm mode="edit" id={doc.id} initial={doc.form} vendors={vendors} linkOptions={linkOptions} lockedLink={!linkOptions} onDone={() => setEditing(false)} />
+          <DocumentForm
+            mode="edit"
+            id={doc.id}
+            initial={doc.form}
+            vendors={vendors}
+            linkOptions={linkOptions}
+            assetOptions={assetOptions}
+            lockedLink={!linkOptions}
+            onDone={() => setEditing(false)}
+          />
         ) : (
           <div className="flex flex-col gap-5">
             <div className="overflow-hidden rounded-lg border border-line bg-subtle">
@@ -265,12 +342,14 @@ export function DocumentPreview({
 export function DocumentList({
   docs,
   vendors,
+  assetOptions,
   link,
   canWrite,
   defaults,
 }: {
   docs: DocumentRow[];
   vendors: Option[];
+  assetOptions?: Option[];
   link: DocLink;
   canWrite: boolean;
   defaults?: Partial<DocumentMetaInput>;
@@ -307,8 +386,8 @@ export function DocumentList({
           ))}
         </ul>
       )}
-      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} vendors={vendors} link={link} defaults={defaults} />
-      <DocumentPreview doc={preview} onOpenChange={(o) => !o && setPreviewId(null)} vendors={vendors} canWrite={canWrite} />
+      <UploadDialog open={uploadOpen} onOpenChange={setUploadOpen} vendors={vendors} link={link} assetOptions={assetOptions} defaults={defaults} />
+      <DocumentPreview doc={preview} onOpenChange={(o) => !o && setPreviewId(null)} vendors={vendors} assetOptions={assetOptions} canWrite={canWrite} />
     </div>
   );
 }

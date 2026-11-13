@@ -11,7 +11,11 @@ export const documentMetaSchema = z.object({
   vendorId: optionalId,
   amount: optionalMoney,
   notes: text(2000),
-  assetId: optionalId,
+  /** One invoice can cover several assets. Sent as a comma-separated string inside FormData uploads. */
+  assetIds: z.preprocess(
+    (v) => (typeof v === "string" ? v.split(",").filter(Boolean) : v),
+    z.array(z.string().min(1)).max(500, "Link up to 500 assets"),
+  ),
   subscriptionId: optionalId,
   expenseId: optionalId,
   ticketId: optionalId,

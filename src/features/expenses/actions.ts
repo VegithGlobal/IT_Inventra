@@ -58,7 +58,7 @@ export const createExpense = createAction({
             vendorId: expense.vendorId,
             amount: expense.total,
             expenseId: expense.id,
-            assetId: expense.assetId,
+            ...(expense.assetId && { assets: { connect: { id: expense.assetId } } }),
             subscriptionId: expense.subscriptionId,
             ticketId: expense.ticketId,
             uploadedById: user.id,
